@@ -1,19 +1,35 @@
-/* 
+/*
  * Read the problem A - "Aztec Vault" in EA2024_Trabalho1 at Mooshak (or aztec_vaults.md).
  */
 
 #include <iostream>
+#include <map>
 #include <vector>
 
 // Stores information about a vault
-struct vault {
+struct vault
+{
     std::vector<std::vector<int>> matrix;
-    int max_moves = 0; // Initialization
+    int max_moves = 0;
+
+    // Define the less than operator for two vaults
+    bool operator<(const struct vault &other) const
+    {
+        // Compare matrices lexicographically
+        if (matrix != other.matrix)
+        {
+            return matrix < other.matrix;
+        }
+
+        // If matrices are equal, compare max_moves
+        return max_moves < other.max_moves;
+    }
 };
 
 // Reads the input in the format given to store vault's information needed for the problem
 // Stores the information in the given matrix
-struct vault read_vault() {
+struct vault read_vault()
+{
     struct vault vault;
     int nr_rows, nr_columns, nr_max_moves;
     std::cin >> nr_rows >> nr_columns >> nr_max_moves;
@@ -33,64 +49,99 @@ struct vault read_vault() {
 
 // Rotates the matrix in the given 2x2 block.
 // If rotate_right == false, rotate the 2x2 block left instead
-void rotate_handle(vault &vault, int handle_x, int handle_y, bool rotate_right = true) {
-    std::vector<std::vector<int>> &mat = vault.matrix;
-    int temp = mat[handle_y][handle_x];
+struct vault rotate_handle(struct vault vault, int handle_x, int handle_y, bool rotate_right = true)
+{
+    int temp = vault.matrix[handle_y][handle_x];
 
-    if (rotate_right) {
-        mat[handle_y][handle_x] = mat[handle_y + 1][handle_x];
-        mat[handle_y + 1][handle_x] = mat[handle_y + 1][handle_x + 1];
-        mat[handle_y + 1][handle_x + 1] = mat[handle_y][handle_x + 1];
-        mat[handle_y][handle_x + 1] = temp;
-    } else {
-        mat[handle_y][handle_x] = mat[handle_y][handle_x + 1];
-        mat[handle_y][handle_x + 1] = mat[handle_y + 1][handle_x + 1];
-        mat[handle_y + 1][handle_x + 1] = mat[handle_y + 1][handle_x];
-        mat[handle_y + 1][handle_x] = temp;
+    if (rotate_right)
+    {
+        vault.matrix[handle_y][handle_x] = vault.matrix[handle_y + 1][handle_x];
+        vault.matrix[handle_y + 1][handle_x] = vault.matrix[handle_y + 1][handle_x + 1];
+        vault.matrix[handle_y + 1][handle_x + 1] = vault.matrix[handle_y][handle_x + 1];
+        vault.matrix[handle_y][handle_x + 1] = temp;
     }
+    else
+    {
+        vault.matrix[handle_y][handle_x] = vault.matrix[handle_y][handle_x + 1];
+        vault.matrix[handle_y][handle_x + 1] = vault.matrix[handle_y + 1][handle_x + 1];
+        vault.matrix[handle_y + 1][handle_x + 1] = vault.matrix[handle_y + 1][handle_x];
+        vault.matrix[handle_y + 1][handle_x] = temp;
+    }
+
+    vault.max_moves--;
+    return vault;
+}
+
+// Whether the vault is solved or not
+bool opened_vault(const struct vault vault)
+{
+    int nr_rows = vault.matrix.size();
+    int nr_columns = vault.matrix[0].size();
+
+    for (int i_row = 0; i_row < nr_rows; i_row++)
+        for (int i_column = 0; i_column < nr_columns; i_column++)
+            if (vault.matrix[i_row][i_column] != i_row + 1)
+                return false;
+
+    return true;
 }
 
 // Counts the given vault minimum rotations needed to solve it.
 // If the minimum rotations exceed the maximum, return -1
-int solve_vault(const struct vault& vault) {
-    const int nr_rows = static_cast<int>(vault.matrix.size());
-    const int nr_columns = static_cast<int>(vault.matrix[0].size());
-    const int max_moves = vault.max_moves;
+int solve_vault_dst(struct vault vault, std::map<struct vault, int> &computed_vaults)
+{
+    // If the vault has been computed
+    if (computed_vaults.find(vault) != computed_vaults.end())
+        return computed_vaults[vault];
 
-    // Brute-force approach: try all possible combinations of rotations
-    int min_rotations = INT_MAX;
-
-    for (int i = 0; i < (1 << (nr_rows * nr_columns)); ++i) {
-        // Apply rotations according to the bitmask
-        struct vault current_vault = vault;
-        int rotations = 0;
-        for (int j = 0; j < nr_rows * nr_columns; ++j) {
-            if (i & (1 << j)) {
-                int row = j / nr_columns;
-                int col = j % nr_columns;
-                rotate_handle(current_vault, col, row);
-                ++rotations;
-            }
-        }
-
-        // Check if the current configuration solves the vault
-        bool solved = true;
-        for (int row = 0; row < nr_rows; ++row) {
-            for (int col = 0; col < nr_columns; ++col) {
-                if (current_vault.matrix[row][col] != 0) {
-                    solved = false;
-                    break;
-                }
-            }
-            if (!solved) break;
-        }
-
-        // Update min_rotations if the current configuration is valid and requires fewer rotations
-        if (solved) min_rotations = std::min(min_rotations, rotations);
+    if (opened_vault(vault))
+    {
+        computed_vaults[vault] = vault.max_moves;
+        return vault.max_moves;
+    }
+    else if (vault.max_moves == 0)
+    {
+        computed_vaults[vault] = -1;
+        return -1;
     }
 
-    // If no valid configuration found within the allowed moves, return -1
-    return (min_rotations == INT_MAX || min_rotations > max_moves) ? -1 : min_rotations;
+    int nr_rows = vault.matrix.size();
+    int nr_columns = vault.matrix[0].size();
+
+    // The values below will always be smaller than the current remaining moves
+    int max_right_moves = -1;
+    int max_left_moves = -1;
+
+    // Create every possibility with the given vault and store
+    // the one that has the vault solved with the most number of moves remaining
+    for (int i_row = 0; i_row < nr_rows - 1; i_row++)
+    {
+        for (int i_column = 0; i_column < nr_columns - 1; i_column++)
+        {
+            int left_moves, right_moves;
+            right_moves = solve_vault_dst(rotate_handle(vault, i_column, i_row), computed_vaults);
+            if (right_moves > max_right_moves)
+                max_right_moves = right_moves;
+
+            left_moves = solve_vault_dst(rotate_handle(vault, i_column, i_row, false), computed_vaults);
+            if (left_moves > max_left_moves)
+                max_left_moves = left_moves;
+        }
+    }
+
+    // Choose the case that had the highest remaining moves
+    int max_remaining_moves = max_right_moves > max_left_moves ? max_right_moves : max_left_moves;
+
+    computed_vaults[vault] = max_remaining_moves;
+    return max_remaining_moves;
+}
+
+// Begins the recursive process of solving a vault
+int solve_vault(const struct vault vault)
+{
+    // computed_vaults will be used for memoization to optimize the function
+    std::map<struct vault, int> computed_vaults;
+    return solve_vault_dst(vault, computed_vaults);
 }
 
 int main()
@@ -102,13 +153,15 @@ int main()
     int nr_test_cases;
     std::cin >> nr_test_cases;
 
-    for (int i = 0; i < nr_test_cases; i++) {
-        int min_rotations = solve_vault(read_vault());
+    for (int i = 0; i < nr_test_cases; i++)
+    {
+        struct vault vault = read_vault();
+        int remaining_moves = solve_vault(vault);
 
-        if (min_rotations == -1)
+        if (remaining_moves == -1)
             std::cout << "the treasure is lost!\n";
         else
-            std::cout << min_rotations;
+            std::cout << vault.max_moves - remaining_moves << std::endl;
     }
 
     return 0;
