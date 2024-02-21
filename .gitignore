@@ -1,9 +1,10 @@
-# VSCode files
+# IDE files
 .vscode
+.idea
 
 # Binary files
+*.exe
 problem_A/aztec_vault
 
 # Misc.
 **/sandbox.py
-*.exe
