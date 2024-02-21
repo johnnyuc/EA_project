@@ -41,11 +41,11 @@ For each test case, you should print the minimum number of moves S required to r
 
 ## Constraints
 
-2 <= R <= 5
-2 <= C <= 5
-R <= C
-1 <= M <= 7
-1 <= Gi,j <= R
+2 <= R <= 5  
+2 <= C <= 5  
+R <= C  
+1 <= M <= 7  
+1 <= Gi,j <= R  
 
 ## Example
 
