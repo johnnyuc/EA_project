@@ -88,7 +88,7 @@ bool opened_vault(const struct vault vault)
 
 // Counts the given vault minimum rotations needed to solve it.
 // If the minimum rotations exceed the maximum, return -1
-int solve_vault_dst(struct vault vault, std::map<struct vault, int> &computed_vaults)
+int solve_vault_dfs(struct vault vault, std::map<struct vault, int> &computed_vaults)
 {
     // If the vault has been computed
     if (computed_vaults.find(vault) != computed_vaults.end())
@@ -119,11 +119,11 @@ int solve_vault_dst(struct vault vault, std::map<struct vault, int> &computed_va
         for (int i_column = 0; i_column < nr_columns - 1; i_column++)
         {
             int left_moves, right_moves;
-            right_moves = solve_vault_dst(rotate_handle(vault, i_column, i_row), computed_vaults);
+            right_moves = solve_vault_dfs(rotate_handle(vault, i_column, i_row), computed_vaults);
             if (right_moves > max_right_moves)
                 max_right_moves = right_moves;
 
-            left_moves = solve_vault_dst(rotate_handle(vault, i_column, i_row, false), computed_vaults);
+            left_moves = solve_vault_dfs(rotate_handle(vault, i_column, i_row, false), computed_vaults);
             if (left_moves > max_left_moves)
                 max_left_moves = left_moves;
         }
@@ -136,12 +136,43 @@ int solve_vault_dst(struct vault vault, std::map<struct vault, int> &computed_va
     return max_remaining_moves;
 }
 
+// Count the occurrence of a pattern, which is represented by an integer, within a given vault
+int count_pattern_occurrence(const struct vault vault, int pattern)
+{
+    int nr_rows = vault.matrix.size();
+    int nr_columns = vault.matrix[0].size();
+    int pattern_occurrence = 0;
+
+    for (int i_row = 0; i_row < nr_rows; i_row++)
+        for (int i_column = 0; i_column < nr_columns; i_column++)
+            pattern_occurrence += vault.matrix[i_row][i_column] == pattern;
+
+    return pattern_occurrence;
+}
+
+// Whether the vault is solvable or not
+bool solvable_vault(const struct vault vault)
+{
+    int nr_rows = vault.matrix.size();
+    int nr_columns = vault.matrix[0].size();
+
+    for (int pattern = 1; pattern < nr_rows + 1; pattern++)
+    {
+        if (count_pattern_occurrence(vault, pattern) != nr_columns)
+            return false;
+    }
+    return true;
+}
+
 // Begins the recursive process of solving a vault
 int solve_vault(const struct vault vault)
 {
+    if (!solvable_vault(vault))
+        return -1;
+
     // computed_vaults will be used for memoization to optimize the function
     std::map<struct vault, int> computed_vaults;
-    return solve_vault_dst(vault, computed_vaults);
+    return solve_vault_dfs(vault, computed_vaults);
 }
 
 int main()
