@@ -88,22 +88,12 @@ bool opened_vault(const struct vault vault)
 
 // Counts the given vault minimum rotations needed to solve it.
 // If the minimum rotations exceed the maximum, return -1
-int solve_vault_dfs(struct vault vault, std::map<struct vault, int> &computed_vaults)
+int solve_vault_dfs(struct vault vault)
 {
-    // If the vault has been computed
-    if (computed_vaults.find(vault) != computed_vaults.end())
-        return computed_vaults[vault];
-
     if (opened_vault(vault))
-    {
-        computed_vaults[vault] = vault.max_moves;
         return vault.max_moves;
-    }
     else if (vault.max_moves == 0)
-    {
-        computed_vaults[vault] = -1;
         return -1;
-    }
 
     int nr_rows = vault.matrix.size();
     int nr_columns = vault.matrix[0].size();
@@ -119,11 +109,11 @@ int solve_vault_dfs(struct vault vault, std::map<struct vault, int> &computed_va
         for (int i_column = 0; i_column < nr_columns - 1; i_column++)
         {
             int left_moves, right_moves;
-            right_moves = solve_vault_dfs(rotate_handle(vault, i_column, i_row), computed_vaults);
+            right_moves = solve_vault_dfs(rotate_handle(vault, i_column, i_row));
             if (right_moves > max_right_moves)
                 max_right_moves = right_moves;
 
-            left_moves = solve_vault_dfs(rotate_handle(vault, i_column, i_row, false), computed_vaults);
+            left_moves = solve_vault_dfs(rotate_handle(vault, i_column, i_row, false));
             if (left_moves > max_left_moves)
                 max_left_moves = left_moves;
         }
@@ -132,7 +122,6 @@ int solve_vault_dfs(struct vault vault, std::map<struct vault, int> &computed_va
     // Choose the case that had the highest remaining moves
     int max_remaining_moves = max_right_moves > max_left_moves ? max_right_moves : max_left_moves;
 
-    computed_vaults[vault] = max_remaining_moves;
     return max_remaining_moves;
 }
 
@@ -156,11 +145,16 @@ bool solvable_vault(const struct vault vault)
     int nr_rows = vault.matrix.size();
     int nr_columns = vault.matrix[0].size();
 
+    // Verify if it's a 2x2 diagonal matrix
+    if (nr_rows == 2 && nr_columns == 2)
+        if (vault.matrix[0][0] == vault.matrix[1][1] || vault.matrix[0][1] == vault.matrix[1][0])
+            return false;
+
+    // Verify if the patterns are possible to be completed
     for (int pattern = 1; pattern < nr_rows + 1; pattern++)
-    {
         if (count_pattern_occurrence(vault, pattern) != nr_columns)
             return false;
-    }
+
     return true;
 }
 
@@ -170,9 +164,7 @@ int solve_vault(const struct vault vault)
     if (!solvable_vault(vault))
         return -1;
 
-    // computed_vaults will be used for memoization to optimize the function
-    std::map<struct vault, int> computed_vaults;
-    return solve_vault_dfs(vault, computed_vaults);
+    return solve_vault_dfs(vault);
 }
 
 int main()
