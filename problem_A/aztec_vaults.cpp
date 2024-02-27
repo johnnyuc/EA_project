@@ -49,38 +49,41 @@ struct vault read_vault()
 
 // Rotates the matrix in the given 2x2 block.
 // If rotate_right == false, rotate the 2x2 block left instead
-struct vault rotate_handle(struct vault vault, int handle_x, int handle_y, bool rotate_right = true)
+// "undo" is set to "true" if the call should be undoing a rotation and restoring the previous state
+void rotate_handle(struct vault *vault, int handle_x, int handle_y, bool rotate_right, bool undo)
 {
-    int temp = vault.matrix[handle_y][handle_x];
+    int temp = vault->matrix[handle_y][handle_x];
 
     if (rotate_right)
     {
-        vault.matrix[handle_y][handle_x] = vault.matrix[handle_y + 1][handle_x];
-        vault.matrix[handle_y + 1][handle_x] = vault.matrix[handle_y + 1][handle_x + 1];
-        vault.matrix[handle_y + 1][handle_x + 1] = vault.matrix[handle_y][handle_x + 1];
-        vault.matrix[handle_y][handle_x + 1] = temp;
+        vault->matrix[handle_y][handle_x] = vault->matrix[handle_y + 1][handle_x];
+        vault->matrix[handle_y + 1][handle_x] = vault->matrix[handle_y + 1][handle_x + 1];
+        vault->matrix[handle_y + 1][handle_x + 1] = vault->matrix[handle_y][handle_x + 1];
+        vault->matrix[handle_y][handle_x + 1] = temp;
     }
     else
     {
-        vault.matrix[handle_y][handle_x] = vault.matrix[handle_y][handle_x + 1];
-        vault.matrix[handle_y][handle_x + 1] = vault.matrix[handle_y + 1][handle_x + 1];
-        vault.matrix[handle_y + 1][handle_x + 1] = vault.matrix[handle_y + 1][handle_x];
-        vault.matrix[handle_y + 1][handle_x] = temp;
+        vault->matrix[handle_y][handle_x] = vault->matrix[handle_y][handle_x + 1];
+        vault->matrix[handle_y][handle_x + 1] = vault->matrix[handle_y + 1][handle_x + 1];
+        vault->matrix[handle_y + 1][handle_x + 1] = vault->matrix[handle_y + 1][handle_x];
+        vault->matrix[handle_y + 1][handle_x] = temp;
     }
 
-    vault.max_moves--;
-    return vault;
+    if (undo)
+        vault->max_moves++;
+    else
+        vault->max_moves--;
 }
 
 // Whether the vault is solved or not
-bool opened_vault(const struct vault vault)
+bool opened_vault(struct vault *vault)
 {
-    int nr_rows = vault.matrix.size();
-    int nr_columns = vault.matrix[0].size();
+    int nr_rows = vault->matrix.size();
+    int nr_columns = vault->matrix[0].size();
 
     for (int i_row = 0; i_row < nr_rows; i_row++)
         for (int i_column = 0; i_column < nr_columns; i_column++)
-            if (vault.matrix[i_row][i_column] != i_row + 1)
+            if (vault->matrix[i_row][i_column] != i_row + 1)
                 return false;
 
     return true;
@@ -88,15 +91,15 @@ bool opened_vault(const struct vault vault)
 
 // Counts the given vault minimum rotations needed to solve it.
 // If the minimum rotations exceed the maximum, return -1
-int solve_vault_dfs(struct vault vault)
+int solve_vault_dfs(struct vault *vault)
 {
     if (opened_vault(vault))
-        return vault.max_moves;
-    else if (vault.max_moves == 0)
+        return vault->max_moves;
+    else if (vault->max_moves == 0)
         return -1;
 
-    int nr_rows = vault.matrix.size();
-    int nr_columns = vault.matrix[0].size();
+    int nr_rows = vault->matrix.size();
+    int nr_columns = vault->matrix[0].size();
 
     // The values below will always be smaller than the current remaining moves
     int max_right_moves = -1;
@@ -109,13 +112,22 @@ int solve_vault_dfs(struct vault vault)
         for (int i_column = 0; i_column < nr_columns - 1; i_column++)
         {
             int left_moves, right_moves;
-            right_moves = solve_vault_dfs(rotate_handle(vault, i_column, i_row));
+
+            // Rotate the vault right and see the maximum amount of remaining moves the resulting state will return
+            rotate_handle(vault, i_column, i_row, true, false);
+            right_moves = solve_vault_dfs(vault);
             if (right_moves > max_right_moves)
                 max_right_moves = right_moves;
+            // Restore the vault to the previous state
+            rotate_handle(vault, i_column, i_row, false, true);
 
-            left_moves = solve_vault_dfs(rotate_handle(vault, i_column, i_row, false));
+            // Rotate the vault left and see the maximum amount of remaining moves the resulting state will return
+            rotate_handle(vault, i_column, i_row, false, false);
+            left_moves = solve_vault_dfs(vault);
             if (left_moves > max_left_moves)
                 max_left_moves = left_moves;
+            // Restore the vault to the previous state
+            rotate_handle(vault, i_column, i_row, true, true);
         }
     }
 
@@ -159,12 +171,12 @@ bool solvable_vault(const struct vault vault)
 }
 
 // Begins the recursive process of solving a vault
-int solve_vault(const struct vault vault)
+int solve_vault(struct vault vault)
 {
     if (!solvable_vault(vault))
         return -1;
 
-    return solve_vault_dfs(vault);
+    return solve_vault_dfs(&vault);
 }
 
 int main()
