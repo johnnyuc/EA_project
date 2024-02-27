@@ -4,6 +4,8 @@
 
 #include <iostream>
 #include <vector>
+#include <ctime>
+#include <string.h>
 
 // Stores information about a vault
 struct vault
@@ -97,11 +99,11 @@ int solve_vault_dfs(struct vault *vault, int *best_remaining_moves)
     if (*best_remaining_moves >= vault->max_moves)
         return -1;
 
-    if (vault->max_moves == 0)
-        return -1;
-
     if (opened_vault(vault))
         return vault->max_moves;
+
+    if (vault->max_moves == 0)
+        return -1;
 
     int nr_rows = vault->matrix.size();
     int nr_columns = vault->matrix[0].size();
@@ -187,8 +189,12 @@ int solve_vault(struct vault vault)
     return best_remaining_moves;
 }
 
-int main()
+int main(int argc, char const *argv[])
 {
+    // Debug
+    std::clock_t start = std::clock();
+    double duration;
+
     // Makes IO faster
     std::ios_base::sync_with_stdio(false);
     std::cin.tie(nullptr);
@@ -206,6 +212,10 @@ int main()
         else
             std::cout << vault.max_moves - remaining_moves << std::endl;
     }
+
+    duration = (std::clock() - start) / (double)CLOCKS_PER_SEC;
+    if (argc == 2 && strcmp(argv[1], "-d") == 0)
+        std::cout << "Took " << duration << " seconds" << std::endl;
 
     return 0;
 }
