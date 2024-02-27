@@ -3,7 +3,6 @@
  */
 
 #include <iostream>
-#include <map>
 #include <vector>
 
 // Stores information about a vault
@@ -97,14 +96,15 @@ int solve_vault_dfs(struct vault *vault, int *best_remaining_moves)
     // fewer remaining moves than the best remaining moves found
     if (*best_remaining_moves >= vault->max_moves)
         return -1;
-    if (opened_vault(vault))
-        return vault->max_moves;
+
     if (vault->max_moves == 0)
         return -1;
 
+    if (opened_vault(vault))
+        return vault->max_moves;
+
     int nr_rows = vault->matrix.size();
     int nr_columns = vault->matrix[0].size();
-
     // The values below will always be smaller than the current remaining moves
     int max_right_moves = -1;
     int max_left_moves = -1;
