@@ -91,11 +91,15 @@ bool opened_vault(struct vault *vault)
 
 // Counts the given vault minimum rotations needed to solve it.
 // If the minimum rotations exceed the maximum, return -1
-int solve_vault_dfs(struct vault *vault)
+int solve_vault_dfs(struct vault *vault, int *best_remaining_moves)
 {
+    // Cut redundant cases by checking if the current state already has
+    // fewer remaining moves than the best remaining moves found
+    if (*best_remaining_moves >= vault->max_moves)
+        return -1;
     if (opened_vault(vault))
         return vault->max_moves;
-    else if (vault->max_moves == 0)
+    if (vault->max_moves == 0)
         return -1;
 
     int nr_rows = vault->matrix.size();
@@ -115,7 +119,7 @@ int solve_vault_dfs(struct vault *vault)
 
             // Rotate the vault right and see the maximum amount of remaining moves the resulting state will return
             rotate_handle(vault, i_column, i_row, true, false);
-            right_moves = solve_vault_dfs(vault);
+            right_moves = solve_vault_dfs(vault, best_remaining_moves);
             if (right_moves > max_right_moves)
                 max_right_moves = right_moves;
             // Restore the vault to the previous state
@@ -123,16 +127,18 @@ int solve_vault_dfs(struct vault *vault)
 
             // Rotate the vault left and see the maximum amount of remaining moves the resulting state will return
             rotate_handle(vault, i_column, i_row, false, false);
-            left_moves = solve_vault_dfs(vault);
+            left_moves = solve_vault_dfs(vault, best_remaining_moves);
             if (left_moves > max_left_moves)
                 max_left_moves = left_moves;
             // Restore the vault to the previous state
             rotate_handle(vault, i_column, i_row, true, true);
         }
     }
-
     // Choose the case that had the highest remaining moves
     int max_remaining_moves = max_right_moves > max_left_moves ? max_right_moves : max_left_moves;
+    // If the current solution has more remaining moves than the previous best, set it as the new best
+    if (max_remaining_moves > *best_remaining_moves)
+        *best_remaining_moves = max_remaining_moves;
 
     return max_remaining_moves;
 }
@@ -176,7 +182,9 @@ int solve_vault(struct vault vault)
     if (!solvable_vault(vault))
         return -1;
 
-    return solve_vault_dfs(&vault);
+    int best_remaining_moves = -1;
+    solve_vault_dfs(&vault, &best_remaining_moves);
+    return best_remaining_moves;
 }
 
 int main()
