@@ -65,35 +65,38 @@ void rotate(struct vault& v, int x, int y, int side, bool undo) {
 bool preprocess(const struct vault& v) {
     // 2x2 diagonal matrix check
     if (v.nr_rows == 2 && v.nr_columns == 2)
-        if (v.matrix[0][0] == v.matrix[1][1] || v.matrix[0][1] == v.matrix[1][0])
+        if (v.matrix[0][0] == v.matrix[1][1] || v.matrix[0][1] == v.matrix[1][0]) {
+            if (verbose) std::cout << "* 2x2 diagonal matrix: check failed" << std::endl;
             return false;
-
+        }
     // Number quantity check
     std::vector<int> numbers(v.nr_rows);
     for (int row = 0; row < v.nr_rows; row++)
         for (int column = 0; column < v.nr_columns; column++)
             numbers[v.matrix[row][column] - 1]++;
     for (int i = 0; i < v.nr_rows; i++)
-        if (numbers[i] != v.nr_columns)
+        if (numbers[i] != v.nr_columns) {
+            std::cout << "* Number quantity: check failed" << std::endl;
             return false;
+        }
 
-    // -----------------------------------------------------------------------------------------------------------------
-    //TODO: Calculate distances between numbers and check if it's possible to solve the vault
-    //! If a number belonging to nth position is in the mth position, minimum amount of moves should be at least
-    //! m-n moves, for every number in the vault, +1 in the end?
-    // Move amount predictor
-    int required = 0;
-    for (int i = 0; i < v.nr_rows; i++)
-        for (int j = 0; j < v.nr_columns; j++)
-            if (v.matrix[i][j] != i + 1)
-                //TODO: Requires fine tunning
-                if (verbose)
-                    required += std::abs(i - (v.matrix[i][j] - 1) / v.nr_columns) + std::abs(j - (v.matrix[i][j] - 1) % v.nr_columns);
-    if (required > v.max_moves) return false;
-    if (verbose) std::cout << "Required: " << required << std::endl;
-    // -----------------------------------------------------------------------------------------------------------------
+    // Minimum amout of moves check
+    for (int i = 0; i < v.nr_rows; i++) {
+        int required = 0;
+        for (int j = 0; j < v.nr_columns; j++) {
+            if (v.matrix[i][j] > i) required += abs(v.matrix[i][j] - i) - 1;
+            else required += abs(v.matrix[i][j] - i) + 1;
+        }
+        if (required > v.max_moves) {
+            if (verbose) std::cout << "* Minimum amout of moves: check failed" << std::endl;
+            return false;
+        }
+    }
     return true;
 }
+
+//TODO: Function to lock lines
+void lock() {}
 
 int process(struct vault& v) {
     if (v.best >= v.max_moves) return -1;
@@ -117,17 +120,6 @@ int process(struct vault& v) {
             remaining = process(v);
             if (remaining > best_remaining) best_remaining = remaining;
             rotate(v, i_column, i_row, LEFT, true);
-
-            if (verbose) {
-                //! Increments chronometer by 2 times
-                // Double rotate right
-                rotate(v, i_column, i_row, RIGHT, false);
-                rotate(v, i_column, i_row, RIGHT, false);
-                remaining = process(v);
-                if (remaining > best_remaining) best_remaining = remaining;
-                rotate(v, i_column, i_row, LEFT, true);
-                rotate(v, i_column, i_row, LEFT, true);
-            }
         }
     }
 
@@ -154,13 +146,13 @@ int main(int argc, char const *argv[]) {
         struct vault v = read();
 
         if (verify(v)) answer = v.max_moves;
-        if (preprocess(v)) answer = process(v);
+        else if (preprocess(v)) answer = process(v);
 
         if (answer == -1) std::cout << "the treasure is lost!\n";
         else std::cout << v.max_moves - answer << std::endl;
     }
 
     duration = (std::clock() - start) / (double)CLOCKS_PER_SEC;
-    if (verbose) std::cout << "Chronometer: " << duration << " seconds" << std::endl;
+    if (verbose) std::cout << "* Chronometer: " << duration << " seconds" << std::endl;
     return 0;
 }
