@@ -4,6 +4,7 @@
 
 # Binary files
 *.exe
+cmake-build-debug
 problem_A/aztec_vaults
 
 # Misc.
