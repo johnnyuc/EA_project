@@ -2,6 +2,8 @@
 #include <vector>
 #include <ctime>
 
+#include <thread> //! Debug
+
 #define LEFT 0
 #define RIGHT 1
 
@@ -181,6 +183,8 @@ int main(int argc, char const *argv[])
     if (argc > 1 && std::string(argv[1]) == "-d")
         verbose = true;
 
+    std::clock_t total_time = std::clock();
+
     std::ios_base::sync_with_stdio(false);
     std::cin.tie(nullptr);
 
@@ -190,8 +194,8 @@ int main(int argc, char const *argv[])
     for (int i = 0; i < nr_vaults; i++)
     {
         count = 0;
-        std::clock_t start = std::clock();
         double duration;
+        std::clock_t case_time = std::clock();
 
         int best = -1;
         struct vault v = read();
@@ -206,13 +210,16 @@ int main(int argc, char const *argv[])
         else
             std::cout << v.max_moves - best << std::endl;
 
-        duration = (std::clock() - start) / (double)CLOCKS_PER_SEC;
+        duration = (std::clock() - case_time) / (double)CLOCKS_PER_SEC;
         if (verbose)
         {
             std::cout << "\033[1;32m[Chronometer: " << duration << " seconds]\033[0m" << std::endl;
             std::cout << "\033[1;32m[Count: " << count << "| Count locks: " << count_locks << "]\033[0m" << std::endl;
         }
     }
+
+    double total_duration = (std::clock() - total_time) / (double)CLOCKS_PER_SEC;
+    std::cout << "\033[1;33m[Total time: " << total_duration << " seconds]\033[0m" << std::endl;
 
     return 0;
 }
