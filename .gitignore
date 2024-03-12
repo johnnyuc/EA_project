@@ -1,6 +1,7 @@
 # IDE files
 .vscode
 .idea
+CMakeLists.txt
 
 # Binary files
 *.exe
