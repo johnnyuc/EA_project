@@ -25,7 +25,7 @@ struct card_grid {
 struct card_grid read_input() {
     struct card_grid card_grid;
     std::cin >> card_grid.nr_columns >> card_grid.nr_rows;
-    std::cin >> card_grid.cards_per_row >> card_grid.cards_per_column;
+    std::cin >> card_grid.cards_per_column >> card_grid.cards_per_row;
 
     card_grid.rows_left = std::vector<int>(card_grid.nr_rows, card_grid.cards_per_row);
 
@@ -80,29 +80,32 @@ void print_vector(std::vector<int> v) {
 }
 
 void print_grid(struct card_grid grid, int row, int column) {
+    print_vector(grid.columns_left);
     for (int i = 0; i < grid.nr_rows; i++) {
         for (int j = 0; j < grid.nr_columns; j++) {
-            if (grid.matrix[i][j])
+            if (i == row && j == column)
+                std::cout << "* ";
+            else if (grid.matrix[i][j])
                 std::cout << "X ";
             else
                 std::cout << "- ";
         }
-        std::cout << std::endl;
+        std::cout << grid.rows_left[i] << std::endl;
     }
-    std::cout << row << " " << column << std::endl;
     std::cout << std::endl;
 }
 
 void process(struct card_grid grid, int position, int &solutions) {
-    int row = position / grid.nr_columns;
-    int column = position % grid.nr_columns;
+    int row = position / grid.nr_columns;    // 3/2
+    int column = position % grid.nr_columns; // 3%2
 
-    if (can_place_card(grid, row, column))
-        place_card(grid, row, column);
     // print_grid(grid, row, column);
 
+    if (can_place_card(grid, row, column)) {
+        place_card(grid, row, column);
+    }
+
     if (grid_solved(grid)) {
-        //  std::cout << "solved!" << std::endl;
         solutions++;
         return;
     }
