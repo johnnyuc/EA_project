@@ -95,9 +95,9 @@ void print_grid(struct card_grid grid, int row, int column) {
     std::cout << std::endl;
 }
 
-void process(struct card_grid grid, int position, int &solutions) {
-    int row = position / grid.nr_columns;    // 3/2
-    int column = position % grid.nr_columns; // 3%2
+void process(struct card_grid grid, int position, long &solutions) {
+    int row = position / grid.nr_columns;
+    int column = position % grid.nr_columns;
 
     // print_grid(grid, row, column);
 
@@ -113,7 +113,6 @@ void process(struct card_grid grid, int position, int &solutions) {
     if (reached_end_of_grid(grid, position)) {
         if (has_card(grid, row, column))
             remove_card(grid, row, column);
-
         return;
     }
 
@@ -135,7 +134,7 @@ int main(int argc, char const *argv[]) {
     std::cin >> nr_tests;
 
     for (int i = 0; i < nr_tests; i++) {
-        int solutions = 0;
+        long solutions = 0;
         process(read_input(), 0, solutions);
         std::cout << solutions << std::endl;
     }
