@@ -1,4 +1,3 @@
-5
-3
-the treasure is lost!
-the treasure is lost!
+2
+6 
+70
