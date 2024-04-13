@@ -16,7 +16,8 @@ struct card_grid {
     int cards_per_row{};
     int cards_per_column{};
 
-    std::vector<int> columns_left{};
+    std::vector<int> cards_left{};
+    std::vector<int> mirrored_cards_left{};
 
     std::vector<std::vector<bool>> permutations{};
 
@@ -44,7 +45,7 @@ struct card_grid read_input() {
     std::cin >> card_grid.nr_columns >> card_grid.nr_rows;
     std::cin >> card_grid.cards_per_column >> card_grid.cards_per_row;
 
-    card_grid.columns_left = std::vector<int>(card_grid.nr_columns, card_grid.cards_per_column);
+    card_grid.cards_left = std::vector<int>(card_grid.nr_columns, card_grid.cards_per_column);
 
     // Initialize the card grid matrix with zeros
     card_grid.matrix = std::vector<std::vector<bool>>(card_grid.nr_rows, std::vector<bool>(card_grid.nr_columns, 0));
@@ -59,7 +60,7 @@ static bool grid_solved(struct card_grid grid, int row) {
     // Calculate the sum of grid.columns_left
     int sum = 0;
     for (int i = 0; i < grid.nr_columns; i++)
-        sum += grid.columns_left[i];
+        sum += grid.cards_left[i];
 
     return sum == 0 && row == grid.nr_rows;
 }
@@ -75,7 +76,7 @@ static void print_vector(std::vector<int> v) {
 }
 
 static void print_grid(struct card_grid grid) {
-    print_vector(grid.columns_left);
+    print_vector(grid.cards_left);
     for (int i = 0; i < grid.nr_rows; i++) {
         for (int j = 0; j < grid.nr_columns; j++) {
             if (grid.matrix[i][j])
@@ -90,7 +91,7 @@ static void print_grid(struct card_grid grid) {
 
 static bool impossible_grid(struct card_grid grid) {
     for (int i = 0; i < grid.nr_columns; i++) {
-        if (grid.columns_left[i] < 0)
+        if (grid.cards_left[i] < 0)
             return true;
     }
 
@@ -98,39 +99,63 @@ static bool impossible_grid(struct card_grid grid) {
 }
 
 static std::vector<int> calculate_columns_left(struct card_grid grid, int row) {
-    std::vector<int> columns_left = grid.columns_left;
+    std::vector<int> cards_left = grid.cards_left;
     for (int i = 0; i < grid.nr_columns; i++) {
         if (grid.matrix[row][i])
-            columns_left[i]--;
+            cards_left[i]--;
     }
 
-    return columns_left;
+    return cards_left;
 }
 
-void process(struct card_grid grid, int row, long &solutions) {
+long process(struct card_grid grid, int row) {
     // print_grid(grid);
-    if (impossible_grid(grid))
-        return;
 
-    if (grid_solved(grid, row)) {
-        solutions++;
-        return;
-    }
+    if (impossible_grid(grid))
+        return 0;
+
+    if (grid_solved(grid, row))
+        return 1;
 
     if (reached_invalid_row(grid, row))
-        return;
+        return 0;
 
+    long solutions = 0;
+    std::vector<int> save_columns_left = grid.cards_left;
     // For each permutation
-    std::vector<int> save_columns_left = grid.columns_left;
     for (int i = 0; i < grid.permutations.size(); i++) {
         grid.matrix[row] = grid.permutations[i];
-        grid.columns_left = calculate_columns_left(grid, row);
-        process(grid, row + 1, solutions);
-        grid.columns_left = save_columns_left;
+        grid.cards_left = calculate_columns_left(grid, row);
+        solutions += process(grid, row + 1);
+        grid.cards_left = save_columns_left;
     }
     grid.matrix[row] = std::vector<bool>(grid.nr_columns, false);
 
-    return;
+    return solutions;
+}
+
+long first_process(struct card_grid grid) {
+    long solutions = 0;
+    std::vector<int> save_columns_left = grid.cards_left;
+    // For each permutation until the middle
+    for (int i = 0; i < grid.permutations.size() / 2; i++) {
+        grid.matrix[0] = grid.permutations[i];
+        grid.cards_left = calculate_columns_left(grid, 0);
+        solutions += process(grid, 1) * 2;
+        grid.cards_left = save_columns_left;
+    }
+
+    // If the number of permutations is odd, process the middle permutation
+    if (grid.permutations.size() % 2 != 0) {
+        grid.matrix[0] = grid.permutations[grid.permutations.size() / 2];
+        grid.cards_left = calculate_columns_left(grid, 0);
+        solutions += process(grid, 1);
+        grid.cards_left = save_columns_left;
+    }
+
+    grid.matrix[0] = std::vector<bool>(grid.nr_columns, false);
+
+    return solutions;
 }
 
 int main() {
@@ -139,9 +164,7 @@ int main() {
 
     for (int i = 0; i < nr_tests; i++) {
         struct card_grid grid = read_input();
-        long solutions = 0;
-        process(grid, 0, solutions);
-        std::cout << solutions << std::endl;
+        std::cout << first_process(grid) << std::endl;
     }
     return 0;
 }
