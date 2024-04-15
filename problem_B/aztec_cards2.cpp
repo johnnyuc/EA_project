@@ -7,8 +7,11 @@
  */
 
 #include <algorithm>
+#include <chrono>
 #include <iostream>
 #include <vector>
+
+bool verbose = false;
 
 struct card_grid {
     int nr_rows{};
@@ -98,7 +101,7 @@ static bool impossible_grid(struct card_grid grid) {
     return false;
 }
 
-static std::vector<int> calculate_columns_left(struct card_grid grid, int row) {
+static std::vector<int> calculate_cards_left(struct card_grid grid, int row) {
     std::vector<int> cards_left = grid.cards_left;
     for (int i = 0; i < grid.nr_columns; i++) {
         if (grid.matrix[row][i])
@@ -109,7 +112,8 @@ static std::vector<int> calculate_columns_left(struct card_grid grid, int row) {
 }
 
 long process(struct card_grid grid, int row) {
-    // print_grid(grid);
+    if (verbose)
+        print_grid(grid);
 
     if (impossible_grid(grid))
         return 0;
@@ -125,7 +129,7 @@ long process(struct card_grid grid, int row) {
     // For each permutation
     for (int i = 0; i < grid.permutations.size(); i++) {
         grid.matrix[row] = grid.permutations[i];
-        grid.cards_left = calculate_columns_left(grid, row);
+        grid.cards_left = calculate_cards_left(grid, row);
         solutions += process(grid, row + 1);
         grid.cards_left = save_columns_left;
     }
@@ -136,21 +140,21 @@ long process(struct card_grid grid, int row) {
 
 long first_process(struct card_grid grid) {
     long solutions = 0;
-    std::vector<int> save_columns_left = grid.cards_left;
+    std::vector<int> save_cards_left = grid.cards_left;
     // For each permutation until the middle
     for (int i = 0; i < grid.permutations.size() / 2; i++) {
         grid.matrix[0] = grid.permutations[i];
-        grid.cards_left = calculate_columns_left(grid, 0);
+        grid.cards_left = calculate_cards_left(grid, 0);
         solutions += process(grid, 1) * 2;
-        grid.cards_left = save_columns_left;
+        grid.cards_left = save_cards_left;
     }
 
     // If the number of permutations is odd, process the middle permutation
     if (grid.permutations.size() % 2 != 0) {
         grid.matrix[0] = grid.permutations[grid.permutations.size() / 2];
-        grid.cards_left = calculate_columns_left(grid, 0);
+        grid.cards_left = calculate_cards_left(grid, 0);
         solutions += process(grid, 1);
-        grid.cards_left = save_columns_left;
+        grid.cards_left = save_cards_left;
     }
 
     grid.matrix[0] = std::vector<bool>(grid.nr_columns, false);
@@ -158,13 +162,26 @@ long first_process(struct card_grid grid) {
     return solutions;
 }
 
-int main() {
+int main(int argc, char *argv[]) {
     int nr_tests;
     std::cin >> nr_tests;
 
+    if (argc > 2 && std::string(argv[2]) == "-v")
+        verbose = true;
+
     for (int i = 0; i < nr_tests; i++) {
         struct card_grid grid = read_input();
+        // Start timer
+        auto start = std::chrono::high_resolution_clock::now();
+
         std::cout << first_process(grid) << std::endl;
+
+        // End timer and print how much time it took
+        if (argc > 1 && std::string(argv[1]) == "-t") {
+            auto end = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> elapsed = end - start;
+            std::cout << "Elapsed time: " << elapsed.count() << " s" << std::endl;
+        }
     }
     return 0;
 }
