@@ -147,24 +147,26 @@ long process(struct card_grid &grid, int row, std::unordered_map<struct key, lon
     print_grid(grid);
 #endif
 
-    if (impossible_grid(grid))
-        return 0;
-
-    // print row and cards_left
-
     if (memo.find({row, grid.cards_left}) != memo.end()) {
 #ifdef VERBOSE
-        std::cout << "================================Found ABOVE matrix in memo================================" << std::endl;
+        std::cout << "================================Found ABOVE matrix in memo: " << memo[{row, grid.cards_left}] << "================================" << std::endl;
 #endif
-
         return memo[{row, grid.cards_left}];
     }
 
-    if (grid_solved(grid, row))
-        return 1;
-
-    if (reached_invalid_row(grid, row))
+    if (impossible_grid(grid)) {
+        memo[{row, grid.cards_left}] = 0;
         return 0;
+    }
+
+    if (grid_solved(grid, row)) {
+        memo[{row, grid.cards_left}] = 1;
+        return 1;
+    }
+    if (reached_invalid_row(grid, row)) {
+        memo[{row, grid.cards_left}] = 0;
+        return 0;
+    }
 
     long solutions = 0;
     std::vector<int> save_columns_left = grid.cards_left;
@@ -173,12 +175,41 @@ long process(struct card_grid &grid, int row, std::unordered_map<struct key, lon
         grid.matrix[row] = grid.permutations[i];
         grid.cards_left = calculate_cards_left(grid, row);
         long permutation_solutions = process(grid, row + 1, memo);
-        grid.cards_left = save_columns_left;
-
-        memo.insert({{row, grid.cards_left}, permutation_solutions});
+        // TODO: Remove the undoable permutations from the list so the next iteration wont check them
+#ifdef VERBOSE
+        std::cout << "Inserting row: " << row << " Cards left: ";
+        print_vector(grid.cards_left);
+        std::cout << "Solutions: " << permutation_solutions << std::endl;
+#endif
         solutions += permutation_solutions;
+        grid.cards_left = save_columns_left;
     }
     grid.matrix[row] = std::vector<bool>(grid.nr_columns, false);
+
+    memo[{row, grid.cards_left}] = solutions;
+    return solutions;
+}
+
+long first_process(struct card_grid &grid, std::unordered_map<struct key, long> &memo) {
+    long solutions = 0;
+    std::vector<int> save_columns_left = grid.cards_left;
+    // For each permutation until the middle
+    for (int i = 0; i < grid.permutations.size() / 2; i++) {
+        grid.matrix[0] = grid.permutations[i];
+        grid.cards_left = calculate_cards_left(grid, 0);
+        solutions += process(grid, 1, memo) * 2;
+        grid.cards_left = save_columns_left;
+    }
+
+    // If the number of permutations is odd, process the middle permutation
+    if (grid.permutations.size() % 2 != 0) {
+        grid.matrix[0] = grid.permutations[grid.permutations.size() / 2];
+        grid.cards_left = calculate_cards_left(grid, 0);
+        solutions += process(grid, 1, memo);
+        grid.cards_left = save_columns_left;
+    }
+
+    grid.matrix[0] = std::vector<bool>(grid.nr_columns, false);
 
     return solutions;
 }
@@ -201,7 +232,7 @@ int main(int argc, char *argv[]) {
         // Start timer
         auto start = std::chrono::high_resolution_clock::now();
         std::unordered_map<struct key, long> memo;
-        std::cout << process(grid, 0, memo) << std::endl;
+        std::cout << first_process(grid, memo) << std::endl;
 
 #ifdef VERBOSE
         print_memo(memo);
