@@ -123,9 +123,12 @@ static void print_grid(struct card_grid grid) {
     std::cout << std::endl;
 }
 
-static bool impossible_grid(struct card_grid grid) {
+static bool impossible_grid(struct card_grid grid, int row) {
+    int sum = 0;
+    int rows_left = grid.nr_rows - row;
     for (int i = 0; i < grid.nr_columns; i++) {
-        if (grid.cards_left[i] < 0)
+        // If the number of cards left is negative or greater than the number of rows left
+        if (grid.cards_left[i] < 0 || grid.cards_left[i] > rows_left)
             return true;
     }
 
@@ -138,6 +141,10 @@ static std::vector<int> calculate_cards_left(struct card_grid grid, int row) {
         cards_left[i] -= (grid.matrix[row][i]);
 
     return cards_left;
+}
+
+static bool preprocess(struct card_grid &grid) {
+    return grid.nr_rows * grid.cards_per_row == grid.nr_columns * grid.cards_per_column;
 }
 
 long process(struct card_grid &grid, int row, std::unordered_map<struct key, long> &memo) {
@@ -154,7 +161,7 @@ long process(struct card_grid &grid, int row, std::unordered_map<struct key, lon
         return memo[{row, grid.cards_left}];
     }
 
-    if (impossible_grid(grid)) {
+    if (impossible_grid(grid, row)) {
         memo[{row, grid.cards_left}] = 0;
         return 0;
     }
@@ -191,6 +198,9 @@ long process(struct card_grid &grid, int row, std::unordered_map<struct key, lon
 }
 
 long first_process(struct card_grid &grid, std::unordered_map<struct key, long> &memo) {
+    if (!preprocess(grid))
+        return 0;
+
     long solutions = 0;
     std::vector<int> save_columns_left = grid.cards_left;
     // For each permutation until the middle
