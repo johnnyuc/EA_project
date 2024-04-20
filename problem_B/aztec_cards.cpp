@@ -121,7 +121,6 @@ void generate_available_permutations(struct card_grid &grid) {
     for (int i = 0; i < grid.permutations.size(); ++i) {
         // Iterate over all states
         for (const auto &state : states) {
-
             bool can_apply = true;
             std::vector<int> cards_left(grid.nr_columns);
             for (int j = 0; j < grid.nr_columns; ++j) {
@@ -185,7 +184,7 @@ void calculate_cards_left(struct card_grid &grid, int row) {
     }
 }
 
-void add_to_memo(struct card_grid &grid, int row, long solutions, std::unordered_map<struct key, long> &memo) {
+void add_to_memo(struct card_grid &grid, int row, unsigned long long solutions, std::unordered_map<struct key, unsigned long long> &memo) {
     std::vector<int> cards_left_sorted = grid.cards_left;
     std::sort(cards_left_sorted.begin(), cards_left_sorted.end());
     memo[{grid.nr_rows - row - 1, cards_left_sorted}] = solutions;
@@ -196,18 +195,18 @@ void add_to_memo(struct card_grid &grid, int row, long solutions, std::unordered
 #endif
 }
 
-bool case_in_memo(struct card_grid &grid, int row, std::unordered_map<struct key, long> &memo) {
+bool case_in_memo(struct card_grid &grid, int row, std::unordered_map<struct key, unsigned long long> &memo) {
     std::vector<int> cards_left_sorted = grid.cards_left;
     std::sort(cards_left_sorted.begin(), cards_left_sorted.end());
 
     return memo.find({grid.nr_rows - row - 1, cards_left_sorted}) != memo.end();
 }
 
-bool preprocess(struct card_grid &grid) {
-    return grid.nr_rows * grid.cards_per_row == grid.nr_columns * grid.cards_per_column;
+bool is_last_row(struct card_grid &grid, int row) {
+    return row == grid.nr_rows - 1;
 }
 
-long process(struct card_grid &grid, int row, std::unordered_map<struct key, long> &memo) {
+unsigned long long process(struct card_grid &grid, int row, std::unordered_map<struct key, unsigned long long> &memo) {
 #ifdef VERBOSE
     std::cout << "Row: " << row << " Cards left: ";
     print_int_vector(grid.cards_left);
@@ -234,23 +233,27 @@ long process(struct card_grid &grid, int row, std::unordered_map<struct key, lon
         return 1;
     }
 
-    long solutions = 0;
+    unsigned long long solutions = 0;
     std::vector<int> save_columns_left = grid.cards_left;
-    // For each available permutation considering the state of the grid
-    for (int permutation_i : grid.available_permutations[grid.state]) {
-        grid.matrix[row] = grid.permutations[permutation_i];
-        calculate_cards_left(grid, row);
-        long permutation_solutions = process(grid, row + 1, memo);
-        solutions += permutation_solutions;
-        grid.cards_left = save_columns_left;
+    if (is_last_row(grid, row))
+        solutions = grid.available_permutations[grid.state].size();
+    else {
+        // For each available permutation considering the state of the grid
+        for (int permutation_i : grid.available_permutations[grid.state]) {
+            grid.matrix[row] = grid.permutations[permutation_i];
+            calculate_cards_left(grid, row);
+            solutions += process(grid, row + 1, memo);
+            grid.cards_left = save_columns_left;
+        }
     }
+
     grid.matrix[row] = std::vector<bool>(grid.nr_columns, false);
 
     add_to_memo(grid, row, solutions, memo);
     return solutions;
 }
 
-static void print_memo(std::unordered_map<struct key, long> memo) {
+static void print_memo(std::unordered_map<struct key, unsigned long long> memo) {
     std::cout << "Memo:" << std::endl;
     for (auto const &pair : memo) {
         std::cout << "Row: " << pair.first.rows_left << " Cards left: ";
@@ -267,7 +270,7 @@ int main(int argc, char *argv[]) {
         struct card_grid grid = read_input();
         // Start timer
         auto start = std::chrono::high_resolution_clock::now();
-        std::unordered_map<struct key, long> memo;
+        std::unordered_map<struct key, unsigned long long> memo;
         std::cout << process(grid, 0, memo) << std::endl;
 
 #ifdef VERBOSE
