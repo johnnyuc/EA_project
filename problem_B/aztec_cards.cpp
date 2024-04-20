@@ -51,7 +51,6 @@ struct card_grid {
     int cards_per_column{};
 
     std::vector<int> cards_left{};
-    std::vector<int> cards_left_sorted{};
     std::vector<bool> state{};
 
     std::vector<std::vector<bool>> permutations{};
@@ -146,7 +145,7 @@ struct card_grid read_input() {
     std::cin >> grid.cards_per_column >> grid.cards_per_row;
 
     grid.cards_left = std::vector<int>(grid.nr_columns, grid.cards_per_column);
-    grid.cards_left_sorted = grid.cards_left;
+
     grid.state = std::vector<bool>(grid.nr_columns, true);
 
     // Initialize the card grid matrix with zeros
@@ -180,17 +179,16 @@ bool impossible_grid(struct card_grid &grid, int row) {
 }
 
 void calculate_cards_left(struct card_grid &grid, int row) {
-    std::vector<int> cards_left = grid.cards_left;
     for (int i = 0; i < grid.nr_columns; i++) {
         grid.cards_left[i] -= (grid.matrix[row][i]);
         grid.state[i] = grid.cards_left[i] > 0;
     }
-    grid.cards_left_sorted = grid.cards_left;
-    std::sort(grid.cards_left_sorted.begin(), grid.cards_left_sorted.end());
 }
 
 void add_to_memo(struct card_grid &grid, int row, long solutions, std::unordered_map<struct key, long> &memo) {
-    memo[{grid.nr_rows - row - 1, grid.cards_left_sorted}] = solutions;
+    std::vector<int> cards_left_sorted = grid.cards_left;
+    std::sort(cards_left_sorted.begin(), cards_left_sorted.end());
+    memo[{grid.nr_rows - row - 1, cards_left_sorted}] = solutions;
 #ifdef VERBOSE
     std::cout << "Inserted rows_left: " << grid.nr_rows - row - 1 << " Cards left: ";
     print_int_vector(grid.cards_left);
@@ -199,7 +197,10 @@ void add_to_memo(struct card_grid &grid, int row, long solutions, std::unordered
 }
 
 bool case_in_memo(struct card_grid &grid, int row, std::unordered_map<struct key, long> &memo) {
-    return memo.find({grid.nr_rows - row - 1, grid.cards_left_sorted}) != memo.end();
+    std::vector<int> cards_left_sorted = grid.cards_left;
+    std::sort(cards_left_sorted.begin(), cards_left_sorted.end());
+
+    return memo.find({grid.nr_rows - row - 1, cards_left_sorted}) != memo.end();
 }
 
 bool preprocess(struct card_grid &grid) {
@@ -214,10 +215,13 @@ long process(struct card_grid &grid, int row, std::unordered_map<struct key, lon
 #endif
 
     if (case_in_memo(grid, row, memo)) {
+        std::vector<int> cards_left_sorted = grid.cards_left;
+        std::sort(cards_left_sorted.begin(), cards_left_sorted.end());
+
 #ifdef VERBOSE
-        std::cout << "================================Found ABOVE matrix in memo: " << memo[{grid.nr_rows - row - 1, grid.cards_left_sorted}] << "================================" << std::endl;
+        std::cout << "================================Found ABOVE matrix in memo: " << memo[{grid.nr_rows - row - 1, cards_left_sorted}] << "================================" << std::endl;
 #endif
-        return memo[{grid.nr_rows - row - 1, grid.cards_left_sorted}];
+        return memo[{grid.nr_rows - row - 1, cards_left_sorted}];
     }
 
     if (impossible_grid(grid, row)) {
@@ -246,7 +250,7 @@ long process(struct card_grid &grid, int row, std::unordered_map<struct key, lon
     return solutions;
 }
 
-static void print_memo(std::unordered_map<struct key, long> &memo) {
+static void print_memo(std::unordered_map<struct key, long> memo) {
     std::cout << "Memo:" << std::endl;
     for (auto const &pair : memo) {
         std::cout << "Row: " << pair.first.rows_left << " Cards left: ";
