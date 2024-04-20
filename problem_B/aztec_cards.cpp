@@ -206,6 +206,10 @@ bool is_last_row(struct card_grid &grid, int row) {
     return row == grid.nr_rows - 1;
 }
 
+bool preprocess(struct card_grid &grid) {
+    return grid.nr_rows * grid.cards_per_row == grid.nr_columns * grid.cards_per_column;
+}
+
 unsigned long long process(struct card_grid &grid, int row, std::unordered_map<struct key, unsigned long long> &memo) {
 #ifdef VERBOSE
     std::cout << "Row: " << row << " Cards left: ";
@@ -271,7 +275,10 @@ int main(int argc, char *argv[]) {
         // Start timer
         auto start = std::chrono::high_resolution_clock::now();
         std::unordered_map<struct key, unsigned long long> memo;
-        std::cout << process(grid, 0, memo) << std::endl;
+        if (preprocess(grid))
+            std::cout << process(grid, 0, memo) << std::endl;
+        else
+            std::cout << 0 << std::endl;
 
 #ifdef VERBOSE
         print_memo(memo);
