@@ -6,12 +6,11 @@
  * Algorithmic Strategies 2023/24
  */
 
-#include <algorithm>
 #include <iostream>
-#include <unordered_map>
+#include <cstdint>
 #include <vector>
-
-#include <chrono>
+#include <algorithm>
+#include <unordered_map>
 
 struct card_grid {
     int nr_rows{};
@@ -27,37 +26,6 @@ struct card_grid {
 
     std::vector<uint32_t> matrix;
 };
-
-void print_int_vector(std::vector<int> v) {
-    for (int i = 0; i < v.size(); i++)
-        std::cout << v[i] << " ";
-    std::cout << std::endl;
-}
-
-void print_grid(struct card_grid &grid) {
-    // print grid.state
-    std::cout << "State: ";
-    for (int i = 0; i < grid.nr_columns; i++) {
-        if (grid.state & (1 << i))
-            std::cout << "1 ";
-        else
-            std::cout << "0 ";
-    }
-
-    std::cout << std::endl;
-
-    print_int_vector(grid.cards_left);
-    for (int i = 0; i < grid.nr_rows; i++) {
-        for (int j = 0; j < grid.nr_columns; j++) {
-            if (grid.matrix[i] & (1 << j))
-                std::cout << "X ";
-            else
-                std::cout << "- ";
-        }
-        std::cout << std::endl;
-    }
-    std::cout << std::endl;
-}
 
 void generate_permutations(struct card_grid &grid) {
     // Generate possible states
@@ -152,8 +120,6 @@ bool preprocess(struct card_grid &grid) {
 }
 
 unsigned long long process(struct card_grid &grid, int row, std::unordered_map<int, unsigned long long> &memo) {
-    // print_grid(grid);
-
     int key = create_key(grid.cards_left, row);
 
     if (case_in_memo(key, memo)) {
@@ -177,7 +143,7 @@ unsigned long long process(struct card_grid &grid, int row, std::unordered_map<i
         solutions = grid.available_permutations[grid.state].size();
     else {
         // For each available permutation considering the state of the grid
-        for (int permutation_i : grid.available_permutations[grid.state]) {
+        for (unsigned int permutation_i : grid.available_permutations[grid.state]) {
             grid.matrix[row] = grid.permutations[permutation_i];
             calculate_cards_left(grid, row);
             solutions += process(grid, row + 1, memo);
@@ -191,27 +157,18 @@ unsigned long long process(struct card_grid &grid, int row, std::unordered_map<i
     return solutions;
 }
 
-int main(int argc, char const *argv[]) {
+int main() {
+    std::ios_base::sync_with_stdio(false);
+    std::cin.tie(nullptr);
 
     int nr_tests;
     std::cin >> nr_tests;
 
     for (int i = 0; i < nr_tests; i++) {
-        // Timer in nano seconds
-        auto start = std::chrono::high_resolution_clock::now();
         struct card_grid grid = read_input();
         std::unordered_map<int, unsigned long long> memo;
 
-        if (preprocess(grid))
-            std::cout << process(grid, 0, memo) << std::endl;
-        else
-            std::cout << 0 << std::endl;
-
-        // End timer and print how much time it took
-        if (argc > 1 && std::string(argv[1]) == "-t") {
-            auto end = std::chrono::high_resolution_clock::now();
-            std::chrono::duration<double> elapsed = end - start;
-            std::cout << "Elapsed time: " << elapsed.count() << " s" << std::endl;
-        }
+        if (preprocess(grid)) std::cout << process(grid, 0, memo) << std::endl;
+        else std::cout << 0 << std::endl;
     }
 }
