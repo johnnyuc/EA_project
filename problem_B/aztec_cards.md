@@ -20,7 +20,7 @@ You heard the deep voice again.
 
 "Okay, this does not seem to be a very hard riddle", you thought. "The vaults problem looked much harder". You started to imagine how this card assignment would look like. Figure 1 shows an example for a grid of size 2x3 for which the total number of cards in each row and each column is 2.
 
-![image](card_example.png)  
+![image](images/card_example.png)  
 Fig.1 - A card assignment example
 But the deep voice continued.
 
