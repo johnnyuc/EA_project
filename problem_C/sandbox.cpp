@@ -63,7 +63,7 @@ struct Labyrinth {
 
     // Data variables
     int doorNode{}, exitNode{}; // Door and exit nodes
-    vector<int> manholeNodes{}; // Manhole node
+    vector<int> manholeNodes{}; // Manhole nodes
 
     unordered_map<int, Node> graph; // Graph representation
 
@@ -86,12 +86,16 @@ struct Labyrinth {
     // Build the graph
     void buildGraph() {
         vector<pair<int, int>> directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
-        string rowString;
+        vector<string> grid(numRows);
 
+        // Store everything first into a grid so we can check for valid adjacent cells
+        for (int row = 0; row < numRows; ++row)
+            cin >> grid[row];
+
+        // Check all cells and build the graph
         for (int row = 0; row < numRows; ++row) {
-            cin >> rowString;
             for (int col = 0; col < numCols; ++col) {
-                char cell = rowString[col];
+                char cell = grid[row][col];
                 if (cell == '#') continue;
 
                 int cellId = toId(row, col, numCols);
@@ -101,7 +105,7 @@ struct Labyrinth {
                 for (auto& dir : directions) {
                     int newRow = row + dir.first;
                     int newCol = col + dir.second;
-                    if (isValid(newRow, newCol, numRows, numCols, rowString)) {
+                    if (isValid(newRow, newCol, numRows, numCols, grid[newRow])) {
                         int neighborId = toId(newRow, newCol, numCols);
                         node.neighbors.push_back(neighborId);
                     }
@@ -113,7 +117,6 @@ struct Labyrinth {
     }
 
     // Depth-first search to support bridge finding
-    //TODO: PROBLEM IN DFS + BRIDGE FINDING FUNCTION
     void dfs(int node, int& id, vector<int>& ids, vector<int>& low, vector<int>& parent) {
         if (graph.count(node) == 0) {
             return;
