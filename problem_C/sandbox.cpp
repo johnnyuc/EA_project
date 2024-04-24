@@ -59,6 +59,8 @@ struct Labyrinth {
     // ================================================================================================
     // Input variables
     int numRows, numCols; // Grid dimensions
+    vector<string> grid{}; // Grid representation
+
     int numCovers{}; // Number of manhole covers
 
     // Data variables
@@ -86,7 +88,6 @@ struct Labyrinth {
     // Build the graph
     void buildGraph() {
         vector<pair<int, int>> directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
-        vector<string> grid(numRows);
 
         // Store everything first into a grid so we can check for valid adjacent cells
         for (int row = 0; row < numRows; ++row)
@@ -96,12 +97,13 @@ struct Labyrinth {
         for (int row = 0; row < numRows; ++row) {
             for (int col = 0; col < numCols; ++col) {
                 char cell = grid[row][col];
-                if (cell == '#') continue;
+                if (cell == '#') continue; // Skip walls
 
                 int cellId = toId(row, col, numCols);
-                int type = (cell == 'M') ? 1 : (cell == 'D') ? 2 : (cell == 'E') ? 3 : 0;
+                int type = (cell == 'M') ? 1 : (cell == 'D') ? 2 : (cell == 'E') ? 3 : 0; // Defaults to path
                 Node node(type);
 
+                // Check adjacent cells
                 for (auto& dir : directions) {
                     int newRow = row + dir.first;
                     int newCol = col + dir.second;
