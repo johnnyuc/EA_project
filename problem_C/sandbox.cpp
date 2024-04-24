@@ -71,7 +71,7 @@ struct Labyrinth {
 
     // Constructors
     // ================================================================================================
-    Labyrinth(int numRows, int numCols) : numRows(numRows), numCols(numCols) {} // Default Constructor
+    Labyrinth(int numRows, int numCols) : numRows(numRows), numCols(numCols), grid(numRows) {} // Default Constructor
 
     // Functions
     // ================================================================================================
