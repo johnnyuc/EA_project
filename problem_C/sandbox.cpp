@@ -284,11 +284,7 @@ struct Labyrinth {
     }
 
     // Print the solution
-    void printSol(bool flagBest) {
-        // Find solutions
-        findBridges();
-        findPath(flagBest);
-
+    void printSol() {
         // Print solutions
         pair<int, int> from = toRowCol(floodgate.first, numCols);
         pair<int, int> to = toRowCol(floodgate.second, numCols);
@@ -326,9 +322,11 @@ struct Labyrinth {
     // Print the graph
     void printGraph() const {
         for (auto& entry : graph) {
-            cout << "Node " << entry.first << " of type " << entry.second.type << " connects to: ";
+            pair<int, int> coordinates = toRowCol(entry.first, numCols);
+            cout << "Node (" << coordinates.first << ", " << coordinates.second << ") of type " << entry.second.type << " connects to: ";
             for (int neighbor : entry.second.neighbors) {
-                cout << neighbor << " ";
+                pair<int, int> neighborCoordinates = toRowCol(neighbor, numCols);
+                cout << "(" << neighborCoordinates.first << ", " << neighborCoordinates.second << ") ";
             }
             cout << endl;
         }
@@ -337,12 +335,16 @@ struct Labyrinth {
 
     // Print the bridges
     void printBridges() {
+        findBridges();
         if (bridges.empty()) {
             cout << "No bridges found in the labyrinth" << endl << endl;
             return;
         }
-        for (auto& bridge : bridges)
-            cout << "Bridge found between nodes " << bridge.first << " and " << bridge.second << endl;
+        for (auto& bridge : bridges) {
+            pair<int, int> from = toRowCol(bridge.first, numCols);
+            pair<int, int> to = toRowCol(bridge.second, numCols);
+            cout << "Bridge found between nodes (" << from.first << ", " << from.second << ") and (" << to.first << ", " << to.second << ")" << endl;
+        }
         cout << endl;
     }
 };
@@ -373,10 +375,15 @@ int main(int argc, char* argv[]) {
         Labyrinth lab(rows, columns);
 
         // Build the graph based on input and dimensions
+        // It reads from input, so has to be done before storing lab.numCovers
         lab.buildGraph();
 
         // Store number of manhole covers
         cin >> lab.numCovers;
+
+        // Solution
+        lab.findBridges();
+        lab.findPath(flagBest);
 
         // Debug
         if (flagDebug) {
@@ -386,8 +393,8 @@ int main(int argc, char* argv[]) {
             lab.printBridges();
         }
 
-        // Solution
-        lab.printSol(flagBest);
+        // Print solution
+        lab.printSol();
     }
 
     return 0;
