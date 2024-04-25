@@ -17,51 +17,32 @@ using namespace std;
 
 // Labyrinth node structure
 struct Node {
-    // Variables
-    // ================================================================================================
     vector<int> neighbors; // Neighbors of the node
+    int type; // 0: Path, 1: Manhole, 2: Door, 3: Exit
 
-    /* Types of nodes
-     * Type 0: Path
-     * Type 1: Manhole
-     * Type 2: Door
-     * Type 3: Exit
-     */
-    int type;
-
-    // Constructors
-    // ================================================================================================
     Node() : type(0) {} // Default constructor
     explicit Node(int type) : type(type) {}
 };
 
 // Labyrinth structure
 struct Labyrinth {
-    // Variables
-    // ================================================================================================
-    // Input variables
+
     int numRows, numCols; // Grid dimensions
     int numCovers{}; // Number of manhole covers
     vector<string> grid{}; // Grid representation
 
-    // Data variables
     int doorNode{}, exitNode{}; // Door and exit nodes positions
     pair<int, int> floodgate{}; // Floodgate nodes position
     vector<int> manholeNodes{}; // Total manhole nodes found
-    vector<int> coveredManholes{}; // Manholes to be covered after finding floodGate position
-
-    // Output variables
     vector<pair<int, int>> bridges; // Bridges in the labyrinth
+
+    vector<int> coveredManholes{}; // Manholes to be covered after finding floodGate position
     vector<pair<int, int>> path; // Path from the door to the exit
 
     unordered_map<int, Node> graph; // Graph representation
 
-    // Constructors
-    // ================================================================================================
     Labyrinth(int numRows, int numCols) : numRows(numRows), numCols(numCols), grid(numRows) {} // Default Constructor
 
-    // Functions
-    // ================================================================================================
     // Check if a cell is valid
     static bool isValid(int row, int col, int numRows, int numCols, const string& rowString) {
         return row >= 0 && row < numRows && col >= 0 && col < numCols && rowString[col] != '#';
@@ -198,9 +179,8 @@ struct Labyrinth {
     }
 
     // Find a suitable bridge to place a flood gate
-    pair<int, int> findFloodgate(bool flagBest) {
+    pair<int, int> findFloodgate() {
         pair<int, int> bestBridge = {-1, -1};
-        size_t maxReachable = INT_MAX; // Used for solution 2
 
         for (auto& bridge : bridges) {
             // Temporarily remove the bridge
@@ -216,34 +196,18 @@ struct Labyrinth {
                 continue;
             }
 
-            // Possible solutions
-            // 1. Best bridge is the first one found [default unless using -b flag]
-            if (!flagBest) {
-                bestBridge = bridge;
-                coveredManholes.insert(coveredManholes.end(), reachable.begin(), reachable.end());
-                break;
-            }
-                // 2. Best bridge is the one that leads to the least number of reachable manholes
-            else {
-                if (reachable.size() < maxReachable) {
-                    bestBridge = bridge;
-                    maxReachable = reachable.size();
-                    coveredManholes.clear();
-                    coveredManholes.insert(coveredManholes.end(), reachable.begin(), reachable.end());
-                }
-            }
-
-            updateGraph(bridge, false); // Restore the bridge
+            bestBridge = bridge;
+            coveredManholes.insert(coveredManholes.end(), reachable.begin(), reachable.end());
+            break;
         }
 
         return bestBridge;
     }
 
     // Find a path from the door to the exit, using DFS
-    void findPath(bool flagBest) {
+    void findPath() {
         // Find the best bridge and remove it
-        floodgate = findFloodgate(flagBest);
-        updateGraph(floodgate, true);
+        floodgate = findFloodgate();
 
         // Depth-first search to find a path from the door to the exit
         vector<int> parent(numRows * numCols, -1);
@@ -299,67 +263,9 @@ struct Labyrinth {
             cout << cell.first << " " << cell.second << endl;
         cout << endl;
     }
-
-    // Support functions
-    // ================================================================================================
-    // Print the grid
-    void printGrid() {
-        for (int row = 0; row < numRows; ++row) {
-            for (int col = 0; col < numCols; ++col) {
-                int cellId = toId(row, col, numCols);
-                char cellChar = (graph.count(cellId)) ?
-                                (graph[cellId].type == 1 ?
-                                 'M' : (graph[cellId].type == 2 ?
-                                        'D' : (graph[cellId].type == 3 ?
-                                               'E' : '.'))) : '#';
-                cout << cellChar << " ";
-            }
-            cout << endl;
-        }
-        cout << endl;
-    }
-
-    // Print the graph
-    void printGraph() const {
-        for (auto& entry : graph) {
-            pair<int, int> coordinates = toRowCol(entry.first, numCols);
-            cout << "Node (" << coordinates.first << ", " << coordinates.second << ") of type " << entry.second.type << " connects to: ";
-            for (int neighbor : entry.second.neighbors) {
-                pair<int, int> neighborCoordinates = toRowCol(neighbor, numCols);
-                cout << "(" << neighborCoordinates.first << ", " << neighborCoordinates.second << ") ";
-            }
-            cout << endl;
-        }
-        cout << endl;
-    }
-
-    // Print the bridges
-    void printBridges() {
-        findBridges();
-        if (bridges.empty()) {
-            cout << "No bridges found in the labyrinth" << endl << endl;
-            return;
-        }
-        for (auto& bridge : bridges) {
-            pair<int, int> from = toRowCol(bridge.first, numCols);
-            pair<int, int> to = toRowCol(bridge.second, numCols);
-            cout << "Bridge found between nodes (" << from.first << ", " << from.second << ") and (" << to.first << ", " << to.second << ")" << endl;
-        }
-        cout << endl;
-    }
 };
 
-int main(int argc, char* argv[]) {
-    bool flagDebug = false;
-    bool flagBest = false;
-    if (argc > 1) {
-        for (int i = 1; i < argc; i++) {
-            string arg = argv[i];
-            if (arg == "-d") flagDebug = true;
-            else if (arg == "-b") flagBest = true;
-        }
-    }
-
+int main() {
     // Makes I/O faster
     ios_base::sync_with_stdio(false);
     cin.tie(nullptr);
@@ -383,15 +289,7 @@ int main(int argc, char* argv[]) {
 
         // Solution
         lab.findBridges();
-        lab.findPath(flagBest);
-
-        // Debug
-        if (flagDebug) {
-            cout << "Test " << t + 1 << "====================================================================" << endl;
-            lab.printGrid();
-            lab.printGraph();
-            lab.printBridges();
-        }
+        lab.findPath();
 
         // Print solution
         lab.printSol();

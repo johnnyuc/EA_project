@@ -48,10 +48,10 @@ struct Labyrinth {
     int doorNode{}, exitNode{}; // Door and exit nodes positions
     pair<int, int> floodgate{}; // Floodgate nodes position
     vector<int> manholeNodes{}; // Total manhole nodes found
-    vector<int> coveredManholes{}; // Manholes to be covered after finding floodGate position
+    vector<pair<int, int>> bridges; // Bridges in the labyrinth
 
     // Output variables
-    vector<pair<int, int>> bridges; // Bridges in the labyrinth
+    vector<int> coveredManholes{}; // Manholes to be covered after finding floodGate position
     vector<pair<int, int>> path; // Path from the door to the exit
 
     unordered_map<int, Node> graph; // Graph representation
@@ -335,7 +335,6 @@ struct Labyrinth {
 
     // Print the bridges
     void printBridges() {
-        findBridges();
         if (bridges.empty()) {
             cout << "No bridges found in the labyrinth" << endl << endl;
             return;
