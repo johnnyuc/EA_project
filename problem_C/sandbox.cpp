@@ -337,6 +337,10 @@ struct Labyrinth {
 
     // Print the bridges
     void printBridges() {
+        if (bridges.empty()) {
+            cout << "No bridges found in the labyrinth" << endl << endl;
+            return;
+        }
         for (auto& bridge : bridges)
             cout << "Bridge found between nodes " << bridge.first << " and " << bridge.second << endl;
         cout << endl;
@@ -376,6 +380,7 @@ int main(int argc, char* argv[]) {
 
         // Debug
         if (flagDebug) {
+            cout << "Test " << t + 1 << "====================================================================" << endl;
             lab.printGrid();
             lab.printGraph();
             lab.printBridges();
