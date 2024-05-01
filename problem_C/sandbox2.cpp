@@ -6,62 +6,78 @@
  * Algorithmic Strategies 2023/24
  */
 
-#include <iostream>
+#include <iostream> // cin, cout
+#include <chrono> // high_resolution_clock
 
-#include <stack>
-#include <vector>
-#include <algorithm>
-#include <unordered_map>
+#include <climits> // INT_MAX
+#include <stack> // stack
+#include <vector> // vector
+#include <algorithm> // reverse
+#include <unordered_map> // unordered_map
+#include <unordered_set> // unordered_set
+#include <functional>
 
 using namespace std;
 
-// Labyrinth node structure
+// Profiler class to measure the time taken by each function [DEBUG]
+class Profiler {
+public:
+    void start(const string& functionName) {
+        startTimes[functionName] = chrono::high_resolution_clock::now();
+    }
+
+    void stop(const string& functionName) {
+        auto duration = chrono::duration_cast<chrono::nanoseconds>(
+                chrono::high_resolution_clock::now() - startTimes[functionName]
+        ).count();
+        accumulatedTimes[functionName] += duration;
+    }
+
+    void printSummary() const {
+        cout << "Accumulated execution times:" << endl;
+        for (const auto& pair : accumulatedTimes) {
+            double seconds = static_cast<double>(pair.second) * 1e-9; // Convert nanoseconds to seconds
+            cout << " - [" << pair.first << "]: " << fixed << seconds << " s" << endl;
+        }
+    }
+
+private:
+    unordered_map<string, chrono::high_resolution_clock::time_point> startTimes;
+    unordered_map<string, long long> accumulatedTimes;
+};
+
+// Profiler object [DEBUG]
+Profiler profiler;
+
+// Maze node structure
 struct Node {
-    // Variables
-    // ================================================================================================
-    vector<int> neighbors; // Neighbors of the node
+    unordered_set<int> neighbors; // Neighbors of the node
+    int type; // 0: Path, 1: Manhole, 2: Door, 3: Exit
 
-    /* Types of nodes
-     * Type 0: Path
-     * Type 1: Manhole
-     * Type 2: Door
-     * Type 3: Exit
-     */
-    int type;
-
-    // Constructors
-    // ================================================================================================
     Node() : type(0) {} // Default constructor
     explicit Node(int type) : type(type) {}
 };
 
-// Labyrinth structure
-struct Labyrinth {
-    // Variables
-    // ================================================================================================
-    // Input variables
+// Maze structure
+struct Maze {
     int numRows, numCols; // Grid dimensions
-    int numCovers{}; // Number of manhole covers
     vector<string> grid{}; // Grid representation
+    int numCovers{}; // Number of manhole covers
 
     // Data variables
     int doorNode{}, exitNode{}; // Door and exit nodes positions
-    pair<int, int> floodgate{}; // Floodgate nodes position
     vector<int> manholeNodes{}; // Total manhole nodes found
-    vector<pair<int, int>> bridges; // Bridges in the labyrinth
 
-    // Output variables
+    vector<pair<int, int>> bridges; // Bridges in the maze
+    pair<int, int> floodgate{}; // Floodgate nodes position
     vector<int> coveredManholes{}; // Manholes to be covered after finding floodGate position
     vector<pair<int, int>> path; // Path from the door to the exit
 
     unordered_map<int, Node> graph; // Graph representation
 
-    // Constructors
-    // ================================================================================================
-    Labyrinth(int numRows, int numCols) : numRows(numRows), numCols(numCols), grid(numRows) {} // Default Constructor
+    Maze (int numRows, int numCols, const vector<string>& grid, int numCovers) :
+            numRows(numRows), numCols(numCols), grid(grid), numCovers(numCovers) {} // Default constructor
 
-    // Functions
-    // ================================================================================================
     // Check if a cell is valid
     static bool isValid(int row, int col, int numRows, int numCols, const string& rowString) {
         return row >= 0 && row < numRows && col >= 0 && col < numCols && rowString[col] != '#';
@@ -78,12 +94,9 @@ struct Labyrinth {
     }
 
     // Build the graph
-    void buildGraph() {
+    void makeGraph() {
+        profiler.start(__func__);
         vector<pair<int, int>> directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
-
-        // Store everything first into a grid so we can check for valid adjacent cells
-        for (int row = 0; row < numRows; ++row)
-            cin >> grid[row];
 
         // Check all cells and build the graph
         for (int row = 0; row < numRows; ++row) {
@@ -115,33 +128,18 @@ struct Labyrinth {
                     int newCol = col + dir.second;
                     if (isValid(newRow, newCol, numRows, numCols, grid[newRow])) {
                         int neighborId = toId(newRow, newCol, numCols);
-                        node.neighbors.push_back(neighborId);
+                        node.neighbors.insert(neighborId);
                     }
                 }
 
                 graph[cellId] = node;
             }
         }
+        profiler.stop(__func__);
     }
 
     // Depth-first search to support bridge finding
-    void dfs(int node, int& id, vector<int>& ids, vector<int>& low, vector<int>& parent) {
-        if (graph.count(node) == 0) return;
-
-        ids[node] = low[node] = id++; // Set the id and low of the node
-
-        // Check all neighbors
-        for (int neighbor : graph.at(node).neighbors) {
-            if (ids[neighbor] == -1) {
-                parent[neighbor] = node;
-                dfs(neighbor, id, ids, low, parent);
-                low[node] = min(low[node], low[neighbor]);
-                if (low[neighbor] > ids[node]) bridges.emplace_back(node, neighbor);
-            } else if (neighbor != parent[node]) low[node] = min(low[node], ids[neighbor]);
-        }
-    }
-
-    // Find bridges in the labyrinth
+    // Find bridges in the maze and perform DFS within the same function
     void findBridges() {
         // Initialize variables
         vector<int> ids(numRows * numCols, -1);
@@ -149,93 +147,99 @@ struct Labyrinth {
         vector<int> parent(numRows * numCols, -1);
         int id = 0;
 
-        // Check all nodes
-        for (auto &entry: graph)
-            if (ids[entry.first] == -1)
-                dfs(entry.first, id, ids, low, parent);
-    }
+        // Lambda function for DFS to avoid code duplication
+        function<void(int)> dfs = [&](int node) {
+            if (graph.count(node) == 0) return;
 
-    // Find how many manholes in the labyrinth are reachable from a given node
-    vector<int> reachableManholes(int node, vector<bool>& visited) {
-        if (graph.count(node) == 0 || visited[node]) return {};
+            ids[node] = low[node] = id++; // Set the id and low of the node
 
-        visited[node] = true;
-        vector<int> reachable;
+            // Check all neighbors
+            for (int neighbor : graph.at(node).neighbors) {
+                if (ids[neighbor] == -1) {
+                    parent[neighbor] = node;
+                    dfs(neighbor); // Recursive call using the lambda function
+                    low[node] = min(low[node], low[neighbor]);
+                    if (low[neighbor] > ids[node]) {
+                        bridges.emplace_back(node, neighbor);
+                    }
+                } else if (neighbor != parent[node]) {
+                    low[node] = min(low[node], ids[neighbor]);
+                }
+            }
+        };
 
-        // If the node is a manhole, add it to the reachable vector
-        if (graph[node].type == 1) reachable.push_back(node);
-
-        // Check all neighbors and add their reachable manholes to the reachable vector
-        for (int neighbor : graph[node].neighbors) {
-            vector<int> neighborReachable = reachableManholes(neighbor, visited);
-            reachable.insert(reachable.end(), neighborReachable.begin(), neighborReachable.end());
-        }
-
-        return reachable;
-    }
-
-    // Update the graph by removing or restoring a bridge [flag: del]
-    void updateGraph(pair<int, int> bridge, bool del) {
-        if (del) {
-            // Remove the bridge
-            graph[bridge.first].neighbors.erase(
-                    remove(
-                            graph[bridge.first].neighbors.begin(),
-                            graph[bridge.first].neighbors.end(),
-                            bridge.second),
-                    graph[bridge.first].neighbors.end());
-            graph[bridge.second].neighbors.erase(
-                    remove(
-                            graph[bridge.second].neighbors.begin(),
-                            graph[bridge.second].neighbors.end(),
-                            bridge.first),
-                    graph[bridge.second].neighbors.end());
-        } else {
-            // Restore the bridge
-            graph[bridge.first].neighbors.push_back(bridge.second);
-            graph[bridge.second].neighbors.push_back(bridge.first);
+        // Check all nodes using the lambda function for DFS
+        for (auto &entry: graph) {
+            if (ids[entry.first] == -1) {
+                dfs(entry.first);
+            }
         }
     }
 
-    // Find a suitable bridge to place a flood gate
+
+    // Find a suitable bridge to place a flood gate and update the graph
     pair<int, int> findFloodgate(bool flagBest) {
+        profiler.start(__func__);
+
         pair<int, int> bestBridge = {-1, -1};
-        size_t maxReachable = INT_MAX; // Used for solution 2
+        size_t minManholes = INT_MAX;
 
         for (auto& bridge : bridges) {
             // Temporarily remove the bridge
-            updateGraph(bridge, true);
+            graph[bridge.first].neighbors.erase(bridge.second);
+            graph[bridge.second].neighbors.erase(bridge.first);
 
             // Count reachable manholes from the door
             vector<bool> visited(numRows * numCols, false);
-            vector<int>reachable = reachableManholes(doorNode, visited);
+            stack<int> s;
+            s.push(doorNode);
+            visited[doorNode] = true;
+            vector<int> reachable;
+
+            // DFS process
+            while (!s.empty()) {
+                int node = s.top();
+                s.pop();
+
+                // If the node is a manhole, add it to the reachable vector
+                if (graph[node].type == 1) reachable.push_back(node);
+
+                // Visit all neighbors
+                for (int neighbor : graph[node].neighbors)
+                    if (!visited[neighbor]) {
+                        visited[neighbor] = true;
+                        s.push(neighbor);
+                    }
+            }
 
             // If it doesn't reach the exit or has enough manhole covers
-            if (!visited[exitNode] || reachable.size() > numCovers) {
-                updateGraph(bridge, false); // Restore the bridge
+            if (!visited[exitNode]) {
+                // Restore the bridge
+                graph[bridge.first].neighbors.insert(bridge.second);
+                graph[bridge.second].neighbors.insert(bridge.first);
                 continue;
             }
 
-            // Possible solutions
-            // 1. Best bridge is the first one found [default unless using -b flag]
-            if (!flagBest) {
+            // If flagBest is true, update bestBridge if the number of reachable manholes is less than minManholes
+            if (flagBest && reachable.size() < minManholes) {
+                minManholes = reachable.size();
                 bestBridge = bridge;
-                coveredManholes.insert(coveredManholes.end(), reachable.begin(), reachable.end());
+                coveredManholes = reachable;
+            }
+
+            // If flagBest is false, update bestBridge if the number of reachable manholes is greater than numCovers
+            if (!flagBest && reachable.size() > numCovers) {
+                bestBridge = bridge;
+                coveredManholes = reachable;
                 break;
             }
-            // 2. Best bridge is the one that leads to the least number of reachable manholes
-            else {
-                if (reachable.size() < maxReachable) {
-                    bestBridge = bridge;
-                    maxReachable = reachable.size();
-                    coveredManholes.clear();
-                    coveredManholes.insert(coveredManholes.end(), reachable.begin(), reachable.end());
-                }
-            }
 
-            updateGraph(bridge, false); // Restore the bridge
+            // Restore the bridge
+            graph[bridge.first].neighbors.insert(bridge.second);
+            graph[bridge.second].neighbors.insert(bridge.first);
         }
 
+        profiler.stop(__func__);
         return bestBridge;
     }
 
@@ -243,7 +247,6 @@ struct Labyrinth {
     void findPath(bool flagBest) {
         // Find the best bridge and remove it
         floodgate = findFloodgate(flagBest);
-        updateGraph(floodgate, true);
 
         // Depth-first search to find a path from the door to the exit
         vector<int> parent(numRows * numCols, -1);
@@ -283,8 +286,9 @@ struct Labyrinth {
         reverse(path.begin(), path.end());
     }
 
+    // [DEBUG FUNCTIONS]
     // Print the solution
-    void printSol() {
+    void solution() {
         // Print solutions
         pair<int, int> from = toRowCol(floodgate.first, numCols);
         pair<int, int> to = toRowCol(floodgate.second, numCols);
@@ -297,11 +301,10 @@ struct Labyrinth {
         cout << path.size() << endl;
         for (auto& cell : path)
             cout << cell.first << " " << cell.second << endl;
-        cout << endl;
+        //cout << endl;
     }
 
-    // Support functions
-    // ================================================================================================
+    // [DEBUG]
     // Print the grid
     void printGrid() {
         for (int row = 0; row < numRows; ++row) {
@@ -336,7 +339,7 @@ struct Labyrinth {
     // Print the bridges
     void printBridges() {
         if (bridges.empty()) {
-            cout << "No bridges found in the labyrinth" << endl << endl;
+            cout << "No bridges found in the maze" << endl << endl;
             return;
         }
         for (auto& bridge : bridges) {
@@ -349,15 +352,9 @@ struct Labyrinth {
 };
 
 int main(int argc, char* argv[]) {
-    bool flagDebug = false;
-    bool flagBest = false;
-    if (argc > 1) {
-        for (int i = 1; i < argc; i++) {
-            string arg = argv[i];
-            if (arg == "-d") flagDebug = true;
-            else if (arg == "-b") flagBest = true;
-        }
-    }
+    // Check if the debug flag is set [DEBUG]
+    bool flagDebug = std::find(argv, argv + argc, std::string("-d")) != argv + argc;
+    bool flagBest = std::find(argv, argv + argc, std::string("-b")) != argv + argc;
 
     // Makes I/O faster
     ios_base::sync_with_stdio(false);
@@ -368,32 +365,37 @@ int main(int argc, char* argv[]) {
     cin >> nr_tests;
 
     for (int t = 0; t < nr_tests; t++) {
-        // Read the dimensions of the labyrinth
-        int rows, columns;
-        cin >> rows >> columns;
-        Labyrinth lab(rows, columns);
+        // Read the dimensions of the maze
+        int numRows, numCols;
+        cin >> numRows >> numCols;
 
-        // Build the graph based on input and dimensions
-        // It reads from input, so has to be done before storing lab.numCovers
-        lab.buildGraph();
+        // Read the maze
+        vector<string> grid(numRows);
+        for (int row = 0; row < numRows; ++row)
+            cin >> grid[row];
 
         // Store number of manhole covers
-        cin >> lab.numCovers;
+        int numCovers;
+        cin >> numCovers;
+
+        // Create the maze with the given dimensions
+        Maze lab(numRows, numCols, grid, numCovers);
 
         // Solution
+        lab.makeGraph();
         lab.findBridges();
         lab.findPath(flagBest);
 
-        // Debug
+        // Print accumulated times and data [DEBUG]
         if (flagDebug) {
-            cout << "Test " << t + 1 << "====================================================================" << endl;
             lab.printGrid();
             lab.printGraph();
             lab.printBridges();
+            profiler.printSummary();
         }
 
         // Print solution
-        lab.printSol();
+        lab.solution();
     }
 
     return 0;
