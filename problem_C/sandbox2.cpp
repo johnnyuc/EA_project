@@ -327,6 +327,101 @@ struct Maze {
         }
         cout << endl;
     }
+
+    // Count the number of reachable manholes after crossing each bridge
+    /*void countReachableManholes() {
+        profiler.start(__func__);
+
+        for (auto& bridge : bridges) {
+            int bridgeNode1 = bridge.first;
+            int bridgeNode2 = bridge.second;
+
+            // Perform DFS from each side of the bridge
+            for (int startNode : {bridgeNode1, bridgeNode2}) {
+                vector<bool> visited(numRows * numCols, false);
+                stack<int> s;
+                s.push(startNode);
+                visited[startNode] = true;
+                int reachableCount = 0;
+
+                // DFS process
+                while (!s.empty()) {
+                    int node = s.top();
+                    s.pop();
+
+                    // If the node is a manhole, increment the reachable count
+                    if (graph[node].type == 1) reachableCount++;
+
+                    // Visit all neighbors except the other end of the bridge
+                    for (int neighbor : graph[node].neighbors) {
+                        if (neighbor != bridgeNode1 && neighbor != bridgeNode2 && !visited[neighbor]) {
+                            visited[neighbor] = true;
+                            s.push(neighbor);
+                        }
+                    }
+                }
+
+                // Print the number of reachable manholes from this side of the bridge
+                pair<int, int> from = toRowCol(startNode, numCols);
+                pair<int, int> to = toRowCol(startNode == bridgeNode1 ? bridgeNode2 : bridgeNode1, numCols);
+                cout << "Number of reachable manholes from (" << from.first << ", " << from.second
+                     << ") to (" << to.first << ", " << to.second << "): " << reachableCount << endl;
+            }
+        }
+
+        profiler.stop(__func__);
+    }*/
+
+    // Find paths from the door to all manholes and the exit using DFS
+    void findAllPaths() {
+        profiler.start(__func__);
+
+        vector<vector<int>> paths(numRows * numCols); // Store paths to each node
+        vector<bool> visited(numRows * numCols, false);
+        stack<int> s;
+
+        // Start from the door
+        visited[doorNode] = true;
+        s.push(doorNode);
+
+        // DFS process
+        while (!s.empty()) {
+            int node = s.top();
+            s.pop();
+
+            // Visit all neighbors
+            for (int neighbor : graph[node].neighbors) {
+                if (!visited[neighbor]) {
+                    visited[neighbor] = true;
+                    paths[neighbor] = paths[node]; // Copy the path from the parent node
+                    paths[neighbor].push_back(node); // Add the current node to the path
+                    s.push(neighbor);
+                }
+            }
+        }
+
+        // Print paths for each manhole and the exit
+        for (int node = 0; node < numRows * numCols; ++node) {
+            if (paths[node].empty()) continue; // Skip unreachable nodes
+
+            // Check if the node is a manhole or the exit
+            if (graph[node].type == 1 || node == exitNode) {
+                pair<int, int> coordinates = toRowCol(node, numCols);
+                cout << "Path to node (" << coordinates.first << ", " << coordinates.second << "): ";
+                for (int pathNode : paths[node]) {
+                    pair<int, int> pathCoordinates = toRowCol(pathNode, numCols);
+                    cout << "(" << pathCoordinates.first << ", " << pathCoordinates.second << ") ";
+                }
+                pair<int, int> nodeCoordinates = toRowCol(node, numCols);
+                cout << "(" << nodeCoordinates.first << ", " << nodeCoordinates.second << ")" << endl;
+            }
+        }
+        cout << endl;
+
+        profiler.stop(__func__);
+    }
+
+
 };
 
 int main(int argc, char* argv[]) {
@@ -362,6 +457,7 @@ int main(int argc, char* argv[]) {
         // Solution
         lab.makeGraph();
         lab.findBridges();
+        //lab.countReachableManholes();
         lab.findPath();
 
         // Print accumulated times and data [DEBUG]
@@ -377,6 +473,7 @@ int main(int argc, char* argv[]) {
             lab.printGrid();
             lab.printGraph();
             lab.printBridges();
+            lab.findAllPaths();
             profiler.printSummary();
             cout << endl;
         }
