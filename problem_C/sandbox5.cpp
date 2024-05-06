@@ -203,10 +203,8 @@ struct Maze {
             // Check if the bridge is not on the path and the number of connected manholes is less than or equal to numCovers
             if (find(path.begin(), path.end(), entry.first.first) == path.end() ||
                 find(path.begin(), path.end(), entry.first.second) == path.end()) {
-                if (entry.second.size() <= numCovers) {
-                    floodgate = entry;
-                    return;
-                }
+                floodgate = entry;
+                return;
             }
         }
 
@@ -227,12 +225,12 @@ struct Maze {
 
         // Print the manhole covers
         vector<int> manholeCovers;
-        for (int manholeNode : manholeNodes) {
-            if (find(floodgate.second.begin(), floodgate.second.end(), manholeNode) == floodgate.second.end()) {
+        for (int manholeNode : manholeNodes)
+            if (find(floodgate.second.begin(), floodgate.second.end(), manholeNode) == floodgate.second.end())
                 manholeCovers.push_back(manholeNode);
-            }
-        }
+
         cout << manholeCovers.size() << endl;
+        //cout << numCovers - floodgate.second.size() << endl;
         for (int manholeNode : manholeCovers) {
             pair<int, int> manhole = toRowCol(manholeNode, numCols);
             cout << manhole.first << " " << manhole.second << endl;
