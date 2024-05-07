@@ -8,6 +8,7 @@
 
 #include <chrono> // high_resolution_clock
 #include <iostream> // cin, cout
+#include <stack> // stack
 #include <vector> // vector
 #include <algorithm> // reverse, min
 #include <unordered_map> // unordered_map
@@ -66,7 +67,9 @@ struct Maze {
     vector<int> manholeNodes{}; // Total manhole nodes found
 
     // DFS
-    vector<int> low, disc, parent;
+    vector<int> low;
+    vector<int> disc;
+    vector<int> parent;
     vector<bool> visited;
 
     // Processed data
@@ -177,18 +180,85 @@ struct Maze {
         return connectedManholes;
     }
 
+    // Iterative depth-first search to find bridges and it's connected manholes [also checks exit path]
+    void iterativeDfs(int start) {
+        profiler.start(__func__);
+
+        static int time = 0; // Order of discovery
+        visited[start] = true; // Set to visited
+        disc[start] = low[start] = ++time; // Set discovery and low time
+        unordered_map<int, vector<int>> connectedManholes; // Manhole ids connected to the node
+
+        // Stack
+        stack<pair<int, int>> stack; // Stack to store nodes and their state
+        stack.emplace(start, -1); // Push the start node with -1 as initial parent
+
+        // Traverse the graph
+        while (!stack.empty()) {
+            int node = stack.top().first; // Get the current node
+            int& state = stack.top().second; // State to manage the current neighbor index
+            state++; // Move to the next neighbor
+
+            // Initialize the processing of a node
+            if (state == 0) {
+                disc[node] = low[node] = ++time;
+                visited[node] = true;
+
+                // Check if the node is the exit node and build the path
+                if (node == exitNode) {
+                    while (node != start) {
+                        path.push_back(node);
+                        node = parent[node];
+                    }
+                    path.push_back(start);
+                    reverse(path.begin(), path.end());
+                }
+
+                // Check if the node is a manhole and add it to the connectedManholes vector
+                if (graph[node].type == 1) connectedManholes[node].emplace_back(node);
+            }
+
+            // Process all neighbors
+            auto it = graph[node].neighbors.begin();
+            advance(it, state); // Move iterator to the current neighbor index
+
+            if (state < graph[node].neighbors.size()) {
+                int neighbor = *it;
+                if (!visited[neighbor]) {
+                    parent[neighbor] = node;
+                    stack.emplace(neighbor, -1);
+                } else if (neighbor != parent[node]) {
+                    low[node] = min(low[node], disc[neighbor]);
+                }
+            } else {
+                // After processing all neighbors
+                if (node != start) {
+                    int p = parent[node];
+                    low[p] = min(low[p], low[node]);
+                    if (low[node] > disc[p])
+                        bridges.emplace_back(make_pair(p, node), connectedManholes[node]);
+                    // Propagate manhole IDs to the parent node
+                    connectedManholes[p].insert(connectedManholes[p].end(), connectedManholes[node].begin(), connectedManholes[node].end());
+                }
+                stack.pop(); // Pop the node after processing
+            }
+        }
+
+        profiler.stop(__func__);
+    }
+
     // Function to traverse the graph, find bridges and which manholes they connect
     void findBridges() {
         profiler.start(__func__);
 
-        // Initialize the vectors
-        low.assign(numRows * numCols, -1);
-        disc.assign(numRows * numCols, -1);
-        parent.assign(numRows * numCols, -1);
-        visited.assign(numRows * numCols, false);
+        low = vector<int>(numRows * numCols, -1);
+        disc = vector<int>(numRows * numCols, -1);
+        parent = vector<int>(numRows * numCols, -1);
+        visited = vector<bool>(numRows * numCols, false);
 
         // Find bridges starting from the door node
         dfs(doorNode);
+        //iterativeDfs(doorNode);
 
         profiler.stop(__func__);
     }
