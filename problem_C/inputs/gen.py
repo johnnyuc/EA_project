@@ -206,9 +206,25 @@ def generateMaze(height, width):
 
     return maze, num_m
 
+def removeWalls(maze, percentage):
+    # Identify all internal walls
+    walls = [(i, j) for i, row in enumerate(maze) for j, cell in enumerate(row) if cell == '#' and 0 < i < len(maze)-1 and 0 < j < len(row)-1]
+
+    # Calculate the number of walls to remove
+    num_walls_to_remove = int(len(walls) * percentage / 100)
+
+    # Randomly select walls to remove
+    walls_to_remove = random.sample(walls, num_walls_to_remove)
+
+    # Remove the selected walls
+    for i, j in walls_to_remove:
+        maze[i][j] = '.'
+
+    return maze
+
 ## Main code
-if len(sys.argv) != 6:
-    print("Usage: python gen3.py <num_cases> <min_height> <max_height> <min_width> <max_width>")
+if len(sys.argv) != 7:
+    print("Usage: python gen3.py <num_cases> <min_height> <max_height> <min_width> <max_width> <remove_perc>")
     sys.exit(1)
 
 try:
@@ -217,8 +233,9 @@ try:
     max_height = int(sys.argv[3])
     min_width = int(sys.argv[4])
     max_width = int(sys.argv[5])
+    percentage = int(sys.argv[6])
 except ValueError:
-    print("Invalid arguments. Please provide integers for num_cases, min_height, max_height, min_width, and max_width.")
+    print("Invalid arguments. Please provide integers for num_cases, min_height, max_height, min_width, max_width and percentage.")
     sys.exit(1)
 
 print(num_cases)
@@ -227,6 +244,9 @@ for _ in range(num_cases):
     height = random.randint(min_height, max_height)
     width = random.randint(min_width, max_width)
     maze, num_m = generateMaze(height, width)
+    print("Unremoved walls")
+    printMaze(maze)
+    maze = removeWalls(maze, percentage)
     print(f"{height} {width}")
     printMaze(maze)
     print(int(num_m * 0.9))
