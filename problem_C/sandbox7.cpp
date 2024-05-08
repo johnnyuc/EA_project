@@ -284,10 +284,10 @@ int main() {
 
         // Print the output
         lab.output(); // Print the output
-
-        // Print accumulated
-        profiler.result();
     }
+
+    // Print accumulated
+    profiler.result();
 
     return 0;
 }
