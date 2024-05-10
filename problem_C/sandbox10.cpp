@@ -12,13 +12,13 @@
 #include <algorithm> // reverse, min
 #include <unordered_map> // unordered_map
 #include <unordered_set> // unordered_set
-#include <queue> // queue
+#include <queue>
 
 using namespace std;
 
 // Maze node structure
 struct Node {
-    vector<int> neighbors; // Neighbors of the node
+    unordered_set<int> neighbors; // Neighbors of the node
     int type; // 0: Path, 1: Manhole, 2: Door, 3: Exit
 
     Node() : type(0) {} // Default constructor
@@ -91,7 +91,7 @@ struct Maze {
                     int newCol = col + dir.second;
                     if (isValid(newRow, newCol, numRows, numCols, grid[newRow])) {
                         int neighborId = toId(newRow, newCol, numCols);
-                        node.neighbors.push_back(neighborId);
+                        node.neighbors.insert(neighborId);
                     }
                 }
 
@@ -152,7 +152,7 @@ struct Maze {
         vector<int> parent(numRows * numCols, -1);
         vector<bool> visited(numRows * numCols, false);
 
-        vector<int> cm(numRows * numCols, 0);
+        unordered_map<int, vector<int>> cm; // Connected manholes
         vector<bool> lte(numRows * numCols, false);
 
         // Traversal variables
@@ -176,7 +176,7 @@ struct Maze {
                 visited[node] = true;
 
                 // Check if the node is a manhole and increment the connectedManholes count
-                if (graph[node].type == 1) cm[node]++;
+                if (graph[node].type == 1) cm[node].push_back(node);
             }
 
             // Process all neighbors
@@ -194,18 +194,23 @@ struct Maze {
                 // After processing all neighbors
                 if (node != doorNode) {
                     low[parent[node]] = min(low[parent[node]], low[node]);
-                    if (cm[node] > 0) cm[parent[node]] += cm[node]; // Update cm count
+                    cm[parent[node]].insert(cm[parent[node]].end(), cm[node].begin(), cm[node].end());
                     if (low[node] > disc[parent[node]] && !found) {
-                        if (numCovers >= manholeNodes.size()-cm[node]) {
+                        if (numCovers >= manholeNodes.size()-cm[node].size()) {
+                            // Check if node is on the path
                             if (cPath.count(node) == 0) {
                                 found = true; // First suitable bridge
                                 floodgate = make_pair(parent[node], node);
                                 // Remove connected manholes from manholeNodes
-                                manholeNodes.erase(remove_if(manholeNodes.begin(), manholeNodes.end(),
-                                                             [&](int manholeNode) {
-                                                                 return disc[manholeNode] > disc[parent[node]];
-                                                             }),
-                                                   manholeNodes.end());
+                                // See remove_if
+                                // Remove connected manholes from manholeNodes
+                                for (int connectedManhole : cm[node]) {
+                                    manholeNodes.erase(remove(
+                                            manholeNodes.begin(),
+                                            manholeNodes.end(),
+                                            connectedManhole),
+                                                       manholeNodes.end());
+                                }
                             }
                         }
                     }
@@ -213,7 +218,6 @@ struct Maze {
                 }
                 stack.pop(); // Pop the node after processing
             }
-            if (found) break;
         }
     }
 
@@ -240,19 +244,20 @@ struct Maze {
 
     // DEBUG
     // Print grid with path marked with X and bridge with B
-    void printGrid(bool original) {
-        cout << endl;
+    void printGrid() {
+        cout << floodgate.first << " " << floodgate.second << endl;
+        if (cPath.count(floodgate.first) != 0 || cPath.count(floodgate.second) != 0) cout << "Floodgate in path" << endl;
         for (int row = 0; row < numRows; ++row) {
             for (int col = 0; col < numCols; ++col) {
                 int id = toId(row, col, numCols);
-                if ((id == floodgate.first || id == floodgate.second) && !original) cout << "B";
-                else if (cPath.count(id) != 0 && !original) cout << "X";
+                if (id == floodgate.first || id == floodgate.second) cout << "B";
+                else if (cPath.count(id) != 0) cout << "X";
                 else cout << grid[row][col];
             }
             cout << endl;
         }
-        cout << endl;
     }
+
 };
 
 int main() {
@@ -284,14 +289,13 @@ int main() {
         // Process the maze
         lab.makeGraph(); // Build the graph
         lab.bfs(); // Find the shortest path
-        lab.traversal(); // Find a suitable bridge
+        lab.traversal(); // Find bridges
 
         // Print the output
         lab.output(); // Print the output
 
         // DEBUG
-        lab.printGrid(true);
-        lab.printGrid(false);
+        lab.printGrid();
     }
 
     return 0;

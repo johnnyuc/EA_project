@@ -6,50 +6,19 @@
  * Algorithmic Strategies 2023/24
  */
 
-#include <chrono>
 #include <iostream> // cin, cout
 #include <stack> // stack
 #include <vector> // vector
 #include <algorithm> // reverse, min
 #include <unordered_map> // unordered_map
 #include <unordered_set> // unordered_set
+#include <queue> // queue
 
 using namespace std;
 
-// Profiler class to measure the time taken by each function [DEBUG]
-class Profiler {
-public:
-    void start(const string& functionName) {
-        startTimes[functionName] = chrono::high_resolution_clock::now();
-    }
-
-    void stop(const string& functionName) {
-        auto duration = chrono::duration_cast<chrono::nanoseconds>(
-                chrono::high_resolution_clock::now() - startTimes[functionName]
-        ).count();
-        accumulatedTimes[functionName] += duration;
-    }
-
-    void result() const {
-        cout << "Accumulated execution times:" << endl;
-        for (const auto& pair : accumulatedTimes) {
-            double seconds = static_cast<double>(pair.second) * 1e-9; // Convert nanoseconds to seconds
-            cout << " - [" << pair.first << "]: " << fixed << seconds << " s" << endl;
-        }
-        cout << endl;
-    }
-
-private:
-    unordered_map<string, chrono::high_resolution_clock::time_point> startTimes;
-    unordered_map<string, long long> accumulatedTimes;
-};
-
-// Profiler object [DEBUG]
-Profiler profiler;
-
 // Maze node structure
 struct Node {
-    unordered_set<int> neighbors; // Neighbors of the node
+    vector<int> neighbors; // Neighbors of the node
     int type; // 0: Path, 1: Manhole, 2: Door, 3: Exit
 
     Node() : type(0) {} // Default constructor
@@ -70,7 +39,8 @@ struct Maze {
     unordered_map<int, Node> graph; // Graph representation
 
     // Output data
-    vector<int> path; // Path from door to exit
+    unordered_set<int> cPath; // Path from door to exit
+    vector<int> path;
     pair<int, int> floodgate; // Floodgate position
 
     Maze (int numRows, int numCols, const vector<string>& grid, int numCovers) :
@@ -93,7 +63,6 @@ struct Maze {
 
     // Build the graph
     void makeGraph() {
-        profiler.start(__func__);
         vector<pair<int, int>> directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
 
         // Check all cells and build the graph
@@ -122,19 +91,59 @@ struct Maze {
                     int newCol = col + dir.second;
                     if (isValid(newRow, newCol, numRows, numCols, grid[newRow])) {
                         int neighborId = toId(newRow, newCol, numCols);
-                        node.neighbors.insert(neighborId);
+                        node.neighbors.push_back(neighborId);
                     }
                 }
 
                 graph[cellId] = node;
             }
         }
-        profiler.stop(__func__);
+    }
+
+    // BFS to find shortest path
+    void bfs() {
+        // Queue
+        queue<int> queue;
+        queue.push(doorNode);
+
+        // Visited vector
+        vector<bool> visited(numRows * numCols, false);
+        visited[doorNode] = true;
+
+        // Parent vector
+        vector<int> parent(numRows * numCols, -1);
+
+        // Traverse the graph
+        while (!queue.empty()) {
+            int node = queue.front();
+            queue.pop();
+
+            // Process all neighbors
+            for (int neighbor : graph[node].neighbors) {
+                if (!visited[neighbor]) {
+                    visited[neighbor] = true;
+                    parent[neighbor] = node;
+                    queue.push(neighbor);
+                }
+            }
+        }
+
+        // Build the path
+        int node = exitNode;
+        while (node != doorNode) {
+            cPath.insert(node);
+            path.push_back(node);
+            node = parent[node];
+        }
+        cPath.insert(doorNode);
+        path.push_back(doorNode);
+
+        // Reverse the path
+        reverse(path.begin(), path.end());
     }
 
     // Iterative depth-first search
     void traversal() {
-        profiler.start(__func__);
         bool found = false;
 
         // DFS vectors
@@ -166,17 +175,6 @@ struct Maze {
                 disc[node] = low[node] = ++time;
                 visited[node] = true;
 
-                // Check if the node is the exit node and build the path
-                if (node == exitNode) {
-                    lte[node] = true;
-                    while (node != doorNode) {
-                        path.push_back(node);
-                        node = parent[node];
-                    }
-                    path.push_back(doorNode);
-                    reverse(path.begin(), path.end());
-                }
-
                 // Check if the node is a manhole and increment the connectedManholes count
                 if (graph[node].type == 1) cm[node]++;
             }
@@ -198,54 +196,62 @@ struct Maze {
                     low[parent[node]] = min(low[parent[node]], low[node]);
                     if (cm[node] > 0) cm[parent[node]] += cm[node]; // Update cm count
                     if (low[node] > disc[parent[node]] && !found) {
-                        if (numCovers >= manholeNodes.size()-cm[node] && !lte[node]) {
-                            found = true; // First suitable bridge
-                            floodgate = make_pair(parent[node], node);
-                            // Remove connected manholes from manholeNodes
-                            for (int manholeNode : manholeNodes)
-                                if (disc[manholeNode] > disc[parent[node]])
-                                    manholeNodes.erase(remove(manholeNodes.begin(), manholeNodes.end(), manholeNode), manholeNodes.end());
+                        if (numCovers >= manholeNodes.size()-cm[node]) {
+                            if (cPath.count(node) == 0) {
+                                found = true; // First suitable bridge
+                                floodgate = make_pair(parent[node], node);
+                                // Remove connected manholes from manholeNodes
+                                manholeNodes.erase(remove_if(manholeNodes.begin(), manholeNodes.end(),
+                                                             [&](int manholeNode) {
+                                                                 return disc[manholeNode] > disc[parent[node]];
+                                                             }),
+                                                   manholeNodes.end());
+                            }
                         }
                     }
                     lte[parent[node]] = lte[parent[node]] || lte[node];
                 }
                 stack.pop(); // Pop the node after processing
             }
+            if (found) break;
         }
-        profiler.stop(__func__);
     }
 
     // Function to print the output
     void output() {
-        profiler.start(__func__);
         // Print the floodgate bridge coordinates
-        profiler.start("floodgatePR");
         pair<int, int> floodgateFrom = toRowCol(floodgate.first, numCols);
         pair<int, int> floodgateTo = toRowCol(floodgate.second, numCols);
         cout << floodgateFrom.first << " " << floodgateFrom.second << " " << floodgateTo.first << " " << floodgateTo.second << endl;
-        profiler.stop("floodgatePR");
 
-        profiler.start("manholePR");
         cout << manholeNodes.size() << endl;
         for (int manholeNode : manholeNodes) {
             pair<int, int> manhole = toRowCol(manholeNode, numCols);
             cout << manhole.first << " " << manhole.second << endl;
         }
-        profiler.stop("manholePR");
 
-        // Print the path reversed
-        profiler.start("pathPR");
+        // Print the path
         cout << path.size() << endl;
         for (int node : path) {
-            profiler.start("convRC");
             pair<int, int> cell = toRowCol(node, numCols);
-            profiler.stop("convRC");
-            profiler.start("cout");
             cout << cell.first << " " << cell.second << endl;
-            profiler.stop("cout");
         }
-        profiler.stop("pathPR");
-        profiler.stop(__func__);
+    }
+
+    // DEBUG
+    // Print grid with path marked with X and bridge with B
+    void printGrid(bool original) {
+        cout << endl;
+        for (int row = 0; row < numRows; ++row) {
+            for (int col = 0; col < numCols; ++col) {
+                int id = toId(row, col, numCols);
+                if ((id == floodgate.first || id == floodgate.second) && !original) cout << "B";
+                else if (cPath.count(id) != 0 && !original) cout << "X";
+                else cout << grid[row][col];
+            }
+            cout << endl;
+        }
+        cout << endl;
     }
 };
 
@@ -259,9 +265,6 @@ int main() {
     cin >> nr_tests;
 
     for (int t = 0; t < nr_tests; t++) {
-        // Chrono in nano seconds
-        auto start = chrono::high_resolution_clock::now();
-
         // Read the dimensions of the maze
         int numRows, numCols;
         cin >> numRows >> numCols;
@@ -280,14 +283,16 @@ int main() {
 
         // Process the maze
         lab.makeGraph(); // Build the graph
-        lab.traversal(); // Find bridges
+        lab.bfs(); // Find the shortest path
+        lab.traversal(); // Find a suitable bridge
 
         // Print the output
         lab.output(); // Print the output
-    }
 
-    // Print accumulated
-    profiler.result();
+        // DEBUG
+        lab.printGrid(true);
+        lab.printGrid(false);
+    }
 
     return 0;
 }
