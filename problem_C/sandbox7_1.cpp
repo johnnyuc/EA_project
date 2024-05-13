@@ -39,8 +39,8 @@ struct Maze {
     unordered_map<int, Node> graph; // Graph representation
 
     // Output data
-    unordered_set<int> cPath; // Path from door to exit
     vector<int> path;
+    unordered_set<int> cPath; // Path from door to exit
     pair<int, int> floodgate; // Floodgate position
 
     Maze (int numRows, int numCols, const vector<string>& grid, int numCovers) :
@@ -144,16 +144,15 @@ struct Maze {
 
     // Iterative depth-first search
     void traversal() {
-        bool found = false;
-
         // DFS vectors
         vector<int> low(numRows * numCols, -1);
         vector<int> disc(numRows * numCols, -1);
         vector<int> parent(numRows * numCols, -1);
         vector<bool> visited(numRows * numCols, false);
 
-        vector<int> cm(numRows * numCols, 0);
-        vector<bool> lte(numRows * numCols, false);
+        // Best bridge
+        vector<int> bridges; // Bridges
+        unordered_map<int, vector<int>> cm; // Connected manholes
 
         // Traversal variables
         static int time = 0; // Order of discovery
@@ -176,7 +175,7 @@ struct Maze {
                 visited[node] = true;
 
                 // Check if the node is a manhole and increment the connectedManholes count
-                if (graph[node].type == 1) cm[node]++;
+                if (graph[node].type == 1) cm[node].push_back(node);
             }
 
             // Process all neighbors
@@ -194,26 +193,29 @@ struct Maze {
                 // After processing all neighbors
                 if (node != doorNode) {
                     low[parent[node]] = min(low[parent[node]], low[node]);
-                    if (cm[node] > 0) cm[parent[node]] += cm[node]; // Update cm count
-                    if (low[node] > disc[parent[node]] && !found) {
-                        if (numCovers >= manholeNodes.size()-cm[node]) {
-                            if (cPath.count(node) == 0) {
-                                found = true; // First suitable bridge
-                                floodgate = make_pair(parent[node], node);
-                                // Remove connected manholes from manholeNodes
-                                manholeNodes.erase(remove_if(manholeNodes.begin(), manholeNodes.end(),
-                                                             [&](int manholeNode) {
-                                                                 return disc[manholeNode] > disc[parent[node]];
-                                                             }),
-                                                   manholeNodes.end());
-                            }
-                        }
-                    }
-                    lte[parent[node]] = lte[parent[node]] || lte[node];
+                    cm[parent[node]].insert(cm[parent[node]].end(), cm[node].begin(), cm[node].end()); // Update cm count
+                    if (low[node] > disc[parent[node]]) bridges.push_back(node);
                 }
                 stack.pop(); // Pop the node after processing
             }
-            if (found) break;
+        }
+
+        // Order the bridges by the number of connected manholes
+        sort(bridges.begin(), bridges.end(), [&cm](int a, int b) {
+            return cm[a].size() > cm[b].size();
+        });
+
+        // Set the floodgate if it's not on the path
+        for (int bridge : bridges) {
+            if (cPath.count(bridge) == 0) {
+                floodgate = make_pair(parent[bridge], bridge);
+                break;
+            }
+        }
+
+        // Remove bridge manholes from manholeNodes
+        for (int manhole : cm[floodgate.second]) {
+            manholeNodes.erase(std::remove(manholeNodes.begin(), manholeNodes.end(), manhole), manholeNodes.end());
         }
     }
 
