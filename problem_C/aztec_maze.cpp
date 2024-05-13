@@ -33,14 +33,14 @@ struct Maze {
 
     // Found data
     int doorNode{}, exitNode{}; // Door and exit nodes positions
-    vector<int> manholeNodes{}; // Total manhole nodes found
+    unordered_set<int> manholeNodes{}; // Total manhole nodes found
 
     // Processed data
     unordered_map<int, Node> graph; // Graph representation
 
     // Output data
-    unordered_set<int> cPath; // Path from door to exit
     vector<int> path;
+    unordered_set<int> cPath; // Path from door to exit
     pair<int, int> floodgate; // Floodgate position
 
     Maze (int numRows, int numCols, const vector<string>& grid, int numCovers) :
@@ -77,7 +77,7 @@ struct Maze {
                 // Get type
                 int type = 0;
                 switch (cell) {
-                    case 'M': type = 1; manholeNodes.emplace_back(cellId); break;
+                    case 'M': type = 1; manholeNodes.insert(cellId); break;
                     case 'D': type = 2; doorNode = cellId; break;
                     case 'E': type = 3; exitNode = cellId; break;
                     default: break;
@@ -152,8 +152,9 @@ struct Maze {
         vector<int> parent(numRows * numCols, -1);
         vector<bool> visited(numRows * numCols, false);
 
-        vector<int> cm(numRows * numCols, 0);
-        vector<bool> lte(numRows * numCols, false);
+        // Best bridge
+        vector<int> bridges; // Bridges
+        unordered_map<int, vector<int>> cm; // Connected manholes
 
         // Traversal variables
         static int time = 0; // Order of discovery
@@ -176,7 +177,7 @@ struct Maze {
                 visited[node] = true;
 
                 // Check if the node is a manhole and increment the connectedManholes count
-                if (graph[node].type == 1) cm[node]++;
+                if (graph[node].type == 1) cm[node].push_back(node);
             }
 
             // Process all neighbors
@@ -194,22 +195,18 @@ struct Maze {
                 // After processing all neighbors
                 if (node != doorNode) {
                     low[parent[node]] = min(low[parent[node]], low[node]);
-                    if (cm[node] > 0) cm[parent[node]] += cm[node]; // Update cm count
-                    if (low[node] > disc[parent[node]] && !found) {
-                        if (numCovers >= manholeNodes.size()-cm[node]) {
+                    // Update the parent connected manholes
+                    cm[parent[node]].insert(cm[parent[node]].end(), cm[node].begin(), cm[node].end());
+                    // Check if the node is a bridge
+                    if (low[node] > disc[parent[node]]) {
+                        if (numCovers >= manholeNodes.size()-cm[node].size()) {
                             if (cPath.count(node) == 0) {
                                 found = true; // First suitable bridge
                                 floodgate = make_pair(parent[node], node);
-                                // Remove connected manholes from manholeNodes
-                                manholeNodes.erase(remove_if(manholeNodes.begin(), manholeNodes.end(),
-                                                             [&](int manholeNode) {
-                                                                 return disc[manholeNode] > disc[parent[node]];
-                                                             }),
-                                                   manholeNodes.end());
+                                for (int n : cm[node]) manholeNodes.erase(n);
                             }
                         }
                     }
-                    lte[parent[node]] = lte[parent[node]] || lte[node];
                 }
                 stack.pop(); // Pop the node after processing
             }
@@ -236,22 +233,6 @@ struct Maze {
             pair<int, int> cell = toRowCol(node, numCols);
             cout << cell.first << " " << cell.second << endl;
         }
-    }
-
-    // DEBUG
-    // Print grid with path marked with X and bridge with B
-    void printGrid(bool original) {
-        cout << endl;
-        for (int row = 0; row < numRows; ++row) {
-            for (int col = 0; col < numCols; ++col) {
-                int id = toId(row, col, numCols);
-                if ((id == floodgate.first || id == floodgate.second) && !original) cout << "B";
-                else if (cPath.count(id) != 0 && !original) cout << "X";
-                else cout << grid[row][col];
-            }
-            cout << endl;
-        }
-        cout << endl;
     }
 };
 
@@ -288,10 +269,6 @@ int main() {
 
         // Print the output
         lab.output(); // Print the output
-
-        // DEBUG
-        lab.printGrid(true);
-        lab.printGrid(false);
     }
 
     return 0;
